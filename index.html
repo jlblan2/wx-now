@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Next Hour">
+<title>Next Hour</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Next Hour</h1>
+  <div class="actions">
+    <button id="refreshBtn" class="icon-btn" aria-label="Refresh">&#x21bb;</button>
+    <button id="settingsBtn" class="icon-btn" aria-label="Settings">&#9881;</button>
+  </div>
+</header>
+
+<main>
+  <section id="settings" class="card settings" hidden>
+    <label>Units
+      <select id="units">
+        <option value="us">US (in/h, mph, °F)</option>
+        <option value="metric">Metric (mm/h, km/h, °C)</option>
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" id="alerts"> Alert me when rain is within 15 minutes</label>
+    <p class="note">Alerts work while the app is open (it re-checks every 5 minutes). On iPhone, add the app
+      to your Home Screen first so it can show notifications.</p>
+  </section>
+
+  <section class="card hero">
+    <p id="place" class="place">&nbsp;</p>
+    <p id="summary" class="summary">Loading…</p>
+    <p id="status" class="status"></p>
+    <canvas id="chart" aria-label="Precipitation for the next 60 minutes"></canvas>
+    <p class="legend"><span class="sw bar"></span> intensity (faded = less certain) <span class="sw line"></span> chance</p>
+    <p id="source" class="source"></p>
+  </section>
+
+  <section class="card map-card">
+    <div id="map"></div>
+    <div id="mapBar" class="map-bar" hidden>
+      <button id="playBtn" class="play" aria-label="Play radar loop">&#9654;</button>
+      <input id="frameSlider" type="range" min="0" max="0" value="0" aria-label="Radar frame">
+      <span id="frameLabel" class="frame-label"></span>
+    </div>
+    <p class="hint">Dashed line: where the next hour's weather is coming from. Tap the map to forecast another spot.
+      <button id="gpsBtn" class="link-btn" hidden>Back to my location</button></p>
+  </section>
+
+  <section class="card">
+    <dl id="details" class="details"></dl>
+  </section>
+
+  <footer>
+    Radar: NOAA NEXRAD via Iowa Environmental Mesonet · Model: Open-Meteo (NOAA HRRR) · Basemap: Esri.
+    Not an official forecast — check the National Weather Service for warnings.
+  </footer>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

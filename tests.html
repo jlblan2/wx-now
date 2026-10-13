@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Next Hour tests</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; background: #fff; color: #111; padding: 16px; }
+  .pass { color: #0a7a2f; } .fail { color: #b00020; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Nowcast engine tests</h1>
+<p>Synthetic storms with known motion. Open this page to run them.</p>
+<ul id="out"></ul>
+<script type="module">
+import {
+  makeField, estimateMotion, pointForecast, hindcast, dbzToRate, RAIN_RATE, velocity,
+} from './nowcast.js';
+
+const out = document.getElementById('out');
+const results = [];
+function check(name, ok, detail) {
+  results.push(ok);
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = `${ok ? 'PASS' : 'FAIL'} — ${name}${detail ? ` (${detail})` : ''}`;
+  out.appendChild(li);
+}
+
+const W = 300, H = 300, DX = 340 / 300;
+
+// Textured storm cells (so correlation has structure to lock onto), moved by (u, v) px/min.
+function stormFrame(cells, minutes, u, v) {
+  const dbz = new Float32Array(W * H).fill(NaN);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let best = NaN;
+      for (const c of cells) {
+        const cx = c.x + u * minutes, cy = c.y + v * minutes;
+        const dx = (x - cx) / c.rx, dy = (y - cy) / c.ry;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > 1) continue;
+        const tex = 4 * Math.sin((x - u * minutes) * 0.45) * Math.cos((y - v * minutes) * 0.37);
+        const val = c.peak - 25 * d2 + tex;
+        if (!(val <= best)) best = val;
+      }
+      if (best >= 5) dbz[y * W + x] = Math.round(best * 2) / 2;
+    }
+  }
+  return dbz;
+}
+
+const T0 = Date.UTC(2026, 0, 1, 12, 0);
+function series(cells, u, v, count = 13) {
+  const fields = [];
+  for (let k = 0; k < count; k++) {
+    const minutes = -5 * (count - 1 - k);
+    fields.push(makeField(stormFrame(cells, minutes, u, v), W, H, DX, T0 + minutes * 60000));
+  }
+  return fields;
+}
+
+// 1. Marshall-Palmer conversion
+check('15 dBZ ≈ 0.32 mm/h', Math.abs(dbzToRate(15) - 0.316) < 0.01, dbzToRate(15).toFixed(3));
+check('40 dBZ ≈ 11.5 mm/h', Math.abs(dbzToRate(40) - 11.53) < 0.1, dbzToRate(40).toFixed(2));
+check('Below 15 dBZ is dry', dbzToRate(12) === 0);
+
+// 2. Motion recovery: storms moving east-north-east at 50 km/h
+const kmh = 50, dir = 70; // toward 70° (ENE)
+const pxmin = kmh / 60 / DX;
+const u = pxmin * Math.sin(dir * Math.PI / 180), v = -pxmin * Math.cos(dir * Math.PI / 180);
+const cells = [
+  { x: 60, y: 170, rx: 28, ry: 18, peak: 48 },
+  { x: 100, y: 120, rx: 20, ry: 30, peak: 44 },
+  { x: 40, y: 230, rx: 35, ry: 15, peak: 40 },
+];
+const fields = series(cells, u, v);
+const recent = fields.filter((f) => f.time >= T0 - 30 * 60000);
+let t = performance.now();
+const mf = estimateMotion(recent);
+const ms = performance.now() - t;
+const g = mf.global;
+const speed = Math.hypot(g.u, g.v) * DX * 60;
+const heading = (Math.atan2(g.u, -g.v) * 180 / Math.PI + 360) % 360;
+check('Motion vectors found', mf.count >= 5, `${mf.count} vectors in ${ms.toFixed(0)} ms`);
+check('Speed within 10%', Math.abs(speed - kmh) / kmh < 0.1, `${speed.toFixed(1)} km/h vs ${kmh}`);
+check('Heading within 8°', Math.abs(heading - dir) < 8, `${heading.toFixed(1)}° vs ${dir}°`);
+
+// 3. Arrival timing: a point downstream of the lead cell
+const now = fields[fields.length - 1];
+// Cell 1's leading edge reaches this point ~25 min after T0 at the true speed.
+const lead = 25;
+const px = cells[0].x + u * lead + cells[0].rx * Math.sin(dir * Math.PI / 180) * 0.6;
+const py = cells[0].y + v * lead - cells[0].rx * Math.cos(dir * Math.PI / 180) * 0.6 * 0;
+const pf = pointForecast(now, mf, px, py, 60);
+// Truth: build the actual future frames and find when rain arrives at (px, py).
+let truth = null;
+for (let m = 0; m <= 60; m++) {
+  const fut = makeField(stormFrame(cells, m, u, v), W, H, DX, T0 + m * 60000);
+  if (fut.rate[Math.round(py) * W + Math.round(px)] >= RAIN_RATE) { truth = m; break; }
+}
+const predicted = pf.prob.findIndex((p) => p >= 0.5);
+check('Point starts dry', pf.prob[0] < 0.1, `p=${pf.prob[0].toFixed(2)}`);
+check('Arrival time within 4 min', truth !== null && predicted >= 0 && Math.abs(predicted - truth) <= 4,
+  `predicted ${predicted} min, actual ${truth} min`);
+
+// 4. Self-check scores tracking above "standing still"
+const hc = hindcast(fields, 30, 150, 150, 60 / DX * 2);
+check('Hindcast tracked beats persistence', hc && hc.tracked > hc.persistence && hc.tracked > 0.6,
+  hc ? `tracked ${hc.tracked.toFixed(2)}, persistence ${hc.persistence.toFixed(2)}` : 'none');
+
+// 5. No rain anywhere: no vectors, zero probability
+const dry = series([], 0, 0, 7);
+const mfDry = estimateMotion(dry);
+const pfDry = pointForecast(dry[dry.length - 1], mfDry, 150, 150, 60);
+check('Dry radar gives no motion and 0% chance', mfDry.count === 0 && Math.max(...pfDry.prob) === 0);
+
+// 6. Stationary storm stays put
+const still = series([{ x: 150, y: 150, rx: 25, ry: 25, peak: 45 }], 0, 0, 7);
+const mfStill = estimateMotion(still);
+const vs = velocity(mfStill, 150, 150);
+check('Stationary storm reads as stationary', Math.hypot(vs.u, vs.v) * DX * 60 < 3,
+  `${(Math.hypot(vs.u, vs.v) * DX * 60).toFixed(2)} km/h`);
+
+const passed = results.filter(Boolean).length;
+document.title = `${passed}/${results.length} passed`;
+const h = document.createElement('h2');
+h.textContent = `${passed}/${results.length} passed`;
+document.body.appendChild(h);
+</script>
+</body>
+</html>
