@@ -2,7 +2,7 @@
 
 Minute-by-minute rain forecast for the next hour, made by radar nowcasting:
 track storms on live radar and project them forward to your exact location. Installable on
-iPhone as a home-screen web app. No server or API keys.
+iPhone as a home-screen web app; see [How to add Next Hour to iPhone](How%20to%20add%20Next%20Hour%20to%20iPhone.txt).
 
 ## How it works
 

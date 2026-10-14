@@ -1,0 +1,112 @@
+HOW TO ADD NEXT HOUR TO AN iPHONE
+=================================
+
+Next Hour is a web app. It isn't in the App Store. You add it to the Home Screen from
+Safari, and after that it opens and works like a normal app.
+
+App address:  https://jlblan2.github.io/next-hour/
+
+What you need
+-------------
+- An iPhone with iOS 16.4 or later (needed for rain alerts when the app is closed).
+  Check under Settings > General > About > iOS Version.
+- Safari. Other browsers on iPhone (Chrome, Firefox, etc.) can't add the app with
+  alerts working, so use Safari for this setup.
+
+
+PART 1 - ADD THE APP TO THE HOME SCREEN
+---------------------------------------
+1. Open Safari and go to:  https://jlblan2.github.io/next-hour/
+2. When it asks to use your location, tap "Allow". The forecast is for where you
+   are.
+3. Tap the Share button: the square with an arrow pointing up. It's at the bottom of
+   the screen, or at the top on some iPhones and iPads.
+4. Scroll down the list and tap "Add to Home Screen".
+   (If you don't see it, scroll to the bottom, tap "Edit Actions..." and add it.)
+5. Leave the name as "Next Hour" and tap "Add" in the top-right corner.
+6. A Next Hour icon (a blue raindrop on radar rings) appears on your Home Screen.
+
+From now on, ALWAYS open the app from this icon, not from Safari. Rain alerts only
+work when the app is opened from the Home Screen icon.
+
+
+PART 2 - ALLOW LOCATION
+-----------------------
+1. Open Next Hour from the Home Screen icon.
+2. When it asks to use your location, tap "Allow While Using App".
+   If you said no by mistake: Settings > Privacy & Security > Location Services >
+   Safari Websites > set to "While Using the App", then reopen Next Hour.
+
+
+PART 3 - TURN ON RAIN ALERTS (works even when the app is closed)
+---------------------------------------------------------------
+1. Open Next Hour from the Home Screen icon.
+2. Tap the gear icon at the top right to open Settings.
+3. Under "Alerts when the app is closed", tap "Turn on".
+4. When iPhone asks to allow notifications, tap "Allow".
+5. The label next to the heading changes to "On".
+6. Tap "Send test alert". A notification should arrive within a few seconds.
+
+You will then get an alert about 15 minutes before rain:
+  - at your saved places (see Part 4), and
+  - at the last place where you opened the app.
+You get one alert per rain event per place, not repeated reminders.
+
+
+PART 4 - SAVE PLACES (optional)
+-------------------------------
+Save places such as Home or the marina to get alerts there wherever you are.
+1. Get the forecast showing the place you want:
+     - For where you are now, just open the app.
+     - For somewhere else, tap that spot on the map.
+2. Open Settings (gear icon). Under "Saved places", type a name (for example "Home").
+3. Tap "Save this spot".
+4. To remove a place, tap "Remove" next to it.
+You can save up to 10 places.
+
+
+USING THE APP
+-------------
+- The headline gives the next hour in plain words, for example
+  "Light rain starting in 12 min, stopping 20 min later".
+- The bar chart shows rain minute by minute. Faded bars mean the forecast is less
+  certain; the dashed orange line is the chance of rain.
+- "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.
+- Radar map: press Play to see the last 30 minutes and the next 60. The dashed line
+  shows where your next hour of weather is coming from.
+- Tap the refresh arrow at the top to update. The app also refreshes every 5 minutes
+  while it is open.
+- Settings > Units switches between US units (inches, mph, F) and metric.
+
+
+TROUBLESHOOTING
+---------------
+"No alert server is set up yet" when turning on alerts:
+    The phone is using an old copy of the app. Swipe the app away to close it fully,
+    wait 10 minutes and reopen it. Or open Settings > Advanced and type
+    https://129-80-206-181.sslip.io  in "Alert server address", then tap "Turn on".
+
+"Notifications are blocked":
+    iPhone Settings > Notifications > Next Hour > turn on "Allow Notifications".
+    Then turn alerts off and on again in the app.
+
+"Open the app from its Home Screen icon":
+    You opened it in Safari. Close Safari and open the Next Hour icon instead.
+
+The app looks out of date after an update:
+    Swipe it away to close it fully and reopen it. If that doesn't work, wait 10
+    minutes and try again.
+
+No alerts arriving:
+    Open Settings in the app and tap "Send test alert". If the test arrives, alerts
+    work, and there has simply been no rain heading your way. If it doesn't arrive,
+    check that Focus / Do Not Disturb is off and notifications are allowed for
+    Next Hour.
+
+Setting up on a new or second iPhone:
+    Repeat Parts 1 to 4 on that phone. Saved places are stored on each phone
+    separately.
+
+
+Note: Next Hour is not an official forecast. For warnings, check the National Weather
+Service.
