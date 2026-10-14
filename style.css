@@ -122,6 +122,8 @@ main {
 }
 .frame-label { font-size: 12px; color: var(--muted); min-width: 132px; text-align: right; font-variant-numeric: tabular-nums; }
 .frame-label.fc { color: var(--accent); }
+.play.arrows { color: var(--muted); }
+.play.arrows.on { color: var(--text); border-color: var(--accent); }
 
 .hint { margin: 8px 12px 12px; color: var(--muted); font-size: 12px; }
 .link-btn { background: none; border: none; color: var(--accent); padding: 0; font-size: 12px; cursor: pointer; text-decoration: underline; }

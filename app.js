@@ -1,4 +1,4 @@
-import { advectField } from './nowcast.js';
+import { advectField, velocity } from './nowcast.js';
 import { toLatLon } from './radar.js';
 import { fetchModel, describe } from './model.js';
 import {
@@ -26,6 +26,7 @@ const state = {
   result: null,
   frameIdx: 0,
   playing: null,
+  arrows: store.get('arrows', true),
 };
 
 // ---------- formatting ----------
@@ -285,7 +286,53 @@ function drawChart(series) {
 
 // ---------- map ----------
 
-let map, overlay, userMarker, trackLine;
+let map, overlay, userMarker, trackLine, arrowLayer;
+
+const ARROW_STEP_KM = 36;      // spacing of the motion arrows
+const ARROW_MINUTES = 15;      // arrow length = distance moved in this many minutes
+
+// Storm-motion arrows from the tracked motion field, only where rain was actually tracked
+// and there is rain nearby now. Each arrow shows the distance moved in 15 minutes.
+function motionArrows(radar) {
+  const { grid, mf, now } = radar;
+  const lines = [];
+  if (!mf.count) return lines;
+  const step = Math.round(ARROW_STEP_KM / grid.dx), near = Math.round(14 / grid.dx);
+  const ll = (x, y) => { const p = toLatLon(grid, x, y); return [p.lat, p.lon]; };
+  for (let y = step / 2; y < grid.h; y += step) {
+    for (let x = step / 2; x < grid.w; x += step) {
+      const ni = Math.round(y / mf.step) * mf.gw + Math.round(x / mf.step);
+      if (!(mf.S[ni] > 0.3)) continue;
+      let rain = false;
+      for (let yy = Math.max(0, y - near); yy < Math.min(grid.h, y + near) && !rain; yy += 2) {
+        for (let xx = Math.max(0, x - near); xx < Math.min(grid.w, x + near); xx += 2) {
+          if (now.rate[Math.floor(yy) * grid.w + Math.floor(xx)] > 0) { rain = true; break; }
+        }
+      }
+      if (!rain) continue;
+      const v = velocity(mf, x, y);
+      if (Math.hypot(v.u, v.v) * grid.dx * 60 < 5) continue;   // nearly stationary
+      const dx = v.u * ARROW_MINUTES / 2, dy = v.v * ARROW_MINUTES / 2;
+      const hx = x + dx, hy = y + dy, len = Math.hypot(dx, dy) * 2;
+      const head = Math.min(len * 0.35, 8 / grid.dx), ang = Math.atan2(dy, dx);
+      const wing = (a) => ll(hx - head * Math.cos(ang + a), hy - head * Math.sin(ang + a));
+      lines.push([ll(x - dx, y - dy), ll(hx, hy)], [wing(0.45), ll(hx, hy), wing(-0.45)]);
+    }
+  }
+  return lines;
+}
+
+function drawArrows(radar) {
+  if (arrowLayer) { arrowLayer.remove(); arrowLayer = null; }
+  $('arrowBtn').classList.toggle('on', state.arrows);
+  if (!radar || !state.arrows) return;
+  const lines = motionArrows(radar);
+  if (!lines.length) return;
+  arrowLayer = L.layerGroup([
+    L.polyline(lines, { color: '#0a1220', weight: 3.5, opacity: 0.45, interactive: false }),
+    L.polyline(lines, { color: '#f4f8ff', weight: 1.6, opacity: 0.95, interactive: false }),
+  ]).addTo(map);
+}
 
 const RAIN_COLORS = [
   [0.3, [90, 150, 255, 0.35]], [1, [60, 120, 250, 0.6]], [2.5, [40, 90, 230, 0.75]],
@@ -350,6 +397,7 @@ function renderMap(r) {
   }
   if (trackLine) { trackLine.remove(); trackLine = null; }
   stopPlay();
+  drawArrows(r.radar);
   const bar = $('mapBar');
   if (!r.radar) {
     if (overlay) { overlay.remove(); overlay = null; }
@@ -457,6 +505,11 @@ function bindUi() {
   });
   $('frameSlider').addEventListener('input', (e) => { stopPlay(); showFrame(+e.target.value); });
   $('playBtn').addEventListener('click', togglePlay);
+  $('arrowBtn').addEventListener('click', () => {
+    state.arrows = !state.arrows;
+    store.set('arrows', state.arrows);
+    drawArrows(state.result && state.result.radar);
+  });
   $('settingsBtn').addEventListener('click', () => { $('settings').hidden = !$('settings').hidden; });
   $('units').value = state.units;
   $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); });

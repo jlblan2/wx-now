@@ -187,6 +187,7 @@ export function buildMotionField(vecs, w, h, dx) {
   const step = 6;
   const gw = Math.ceil((w - 1) / step) + 1, gh = Math.ceil((h - 1) / step) + 1;
   const U = new Float32Array(gw * gh), V = new Float32Array(gw * gh);
+  const S = new Float32Array(gw * gh);   // support: how much tracked evidence each node has
   const gu = vecs.length ? weightedMedian(vecs.map((p) => p.u), vecs.map((p) => p.r)) : 0;
   const gv = vecs.length ? weightedMedian(vecs.map((p) => p.v), vecs.map((p) => p.r)) : 0;
   const s = MOTION_SIGMA_KM / dx, k = 1 / (2 * s * s), prior = 0.02;
@@ -200,9 +201,10 @@ export function buildMotionField(vecs, w, h, dx) {
       }
       U[j * gw + i] = su / sw;
       V[j * gw + i] = sv / sw;
+      S[j * gw + i] = sw - prior;
     }
   }
-  return { U, V, gw, gh, step, w, h, dx, global: { u: gu, v: gv }, count: vecs.length };
+  return { U, V, S, gw, gh, step, w, h, dx, global: { u: gu, v: gv }, count: vecs.length };
 }
 
 export function velocity(mf, x, y) {
