@@ -22,14 +22,17 @@ iPhone as a home-screen web app. No server or API keys.
 6. **Beyond radar** — offshore or far from a radar site, the forecast blends toward the
    Open-Meteo / HRRR model, which also gives the temperature that picks rain or snow.
 
+The same Open-Meteo request also supplies the 24-hour and 7-day forecasts (temperature,
+chance of precipitation, wind and gusts).
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `nowcast.js` | Tracking and extrapolation engine (no browser APIs) |
 | `radar.js` | Fetches and decodes radar frames, radar-site distance |
-| `model.js` | Open-Meteo model backup |
-| `app.js` | UI: summary, chart, radar map, alerts |
+| `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
+| `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |
 | `tests.html` | Engine tests on synthetic storms; open in a browser |
 

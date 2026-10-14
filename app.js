@@ -5,7 +5,7 @@ import {
   FRAME_MIN, makeGrid, toPixel, toLatLon, fetchFrame, latestFrameTime, pruneCache,
   inDomain, nearestRadar, radarQuality,
 } from './radar.js';
-import { fetchModel, modelRateAt } from './model.js';
+import { fetchModel, modelRateAt, describe } from './model.js';
 
 const HISTORY_MIN = 60;       // radar history fetched (motion uses the last 30 min, the self-check the rest)
 const REFRESH_MS = 5 * 60000;
@@ -256,7 +256,11 @@ function render() {
   $('source').textContent = src;
 
   const lines = [];
-  if (r.model && r.model.tempC !== null) lines.push(['Temperature', fmtTemp(r.model.tempC)]);
+  if (r.model && r.model.tempC !== null) {
+    const c = r.model.current;
+    lines.push(['Temperature', `${fmtTemp(r.model.tempC)} (feels like ${fmtTemp(c.feels)}), humidity ${Math.round(c.humidity)}%`]);
+    lines.push(['Wind', `From ${compass(c.windDir)} at ${fmtSpeed(c.wind)}, gusts ${fmtSpeed(c.gust)}`]);
+  }
   const now = r.series[0];
   lines.push(['Right now', now.prob >= P_ON ? `${cap(intensityWord(now.intensity))} ${r.noun}, ${fmtRate(now.intensity)}` : `No ${r.noun}`]);
   if (r.radar) {
@@ -284,7 +288,55 @@ function render() {
   setStatus('');
 
   drawChart(r.series, r.noun);
+  renderOutlook(r.model);
   renderMap(r);
+}
+
+// ---------- hourly and 7-day ----------
+
+// Wind arrow pointing the way the wind blows (direction is where it comes from).
+const windArrow = (from) => `<span class="arrow" style="transform:rotate(${Math.round(from + 180)}deg)">↑</span>`;
+
+function renderOutlook(model) {
+  const hourly = $('hourly'), daily = $('daily');
+  if (!model || !model.hours.length) {
+    $('hourlyCard').hidden = $('dailyCard').hidden = !model;
+    return;
+  }
+  $('hourlyCard').hidden = $('dailyCard').hidden = false;
+  const tz = model.timezone;
+  const hourFmt = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', timeZone: tz });
+  const dayFmt = (ms) => new Date(ms).toLocaleDateString([], { weekday: 'short', timeZone: tz });
+  const pop = (p) => (p !== null && p >= 10 ? `<span class="pop">${Math.round(p)}%</span>` : '<span class="pop"></span>');
+
+  $('hourlyUnits').textContent = `· wind ${metric() ? 'km/h' : 'mph'}`;
+  hourly.innerHTML = model.hours.map((h, i) => {
+    const d = describe(h.code, h.day);
+    return `<div class="hour" title="${d.label}">
+      <span class="h-time">${i === 0 ? 'Now' : hourFmt(h.time)}</span>
+      <span class="h-icon">${d.icon}</span>
+      <span class="h-temp">${fmtTemp(h.temp)}</span>
+      ${pop(h.pop)}
+      <span class="h-wind">${windArrow(h.windDir)}${Math.round(metric() ? h.wind : h.wind * 0.621371)}</span>
+    </div>`;
+  }).join('');
+
+  const lo = Math.min(...model.days.map((d) => d.lo)), hi = Math.max(...model.days.map((d) => d.hi));
+  const span = Math.max(1, hi - lo);
+  daily.innerHTML = model.days.map((d, i) => {
+    const w = describe(d.code, true);
+    const left = (d.lo - lo) / span * 100, width = Math.max(4, (d.hi - d.lo) / span * 100);
+    return `<div class="day">
+      <span class="d-name">${i === 0 ? 'Today' : dayFmt(d.time)}</span>
+      <span class="d-icon" title="${w.label}">${w.icon}</span>
+      ${pop(d.pop)}
+      <span class="d-lo">${fmtTemp(d.lo)}</span>
+      <span class="d-bar"><span style="left:${left}%;width:${width}%"></span></span>
+      <span class="d-hi">${fmtTemp(d.hi)}</span>
+      <span class="d-wind">${windArrow(d.windDir)}${fmtSpeed(d.wind)}<small> g${Math.round(metric() ? d.gust : d.gust * 0.621371)}</small></span>
+      <span class="d-label">${w.label}${d.precip >= 0.25 ? ` · ${metric() ? `${d.precip.toFixed(1)} mm` : `${(d.precip / 25.4).toFixed(2)} in`}` : ''}</span>
+    </div>`;
+  }).join('');
 }
 
 function rateToHeight(mm) {

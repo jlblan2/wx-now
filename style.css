@@ -77,6 +77,39 @@ main {
 
 .source { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 
+.card h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 0 0 10px; }
+
+.card h2 .units { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+.hourly { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+.hour { flex: 0 0 52px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 13px; }
+.h-time { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.h-icon { font-size: 22px; line-height: 1.2; }
+.h-temp { font-weight: 600; }
+.pop { color: var(--rain); font-size: 12px; min-height: 1.2em; }
+.h-wind { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.arrow { display: inline-block; margin-right: 1px; }
+
+.daily { display: flex; flex-direction: column; }
+.day {
+  display: grid;
+  grid-template-columns: 44px 30px 34px 38px 1fr 38px;
+  grid-template-areas: "name icon pop lo bar hi" "label label label label wind wind";
+  align-items: center; column-gap: 6px; row-gap: 2px;
+  padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px;
+}
+.day:first-child { border-top: none; }
+.d-name { grid-area: name; font-weight: 600; }
+.d-icon { grid-area: icon; font-size: 20px; }
+.day .pop { grid-area: pop; }
+.d-lo { grid-area: lo; color: var(--muted); text-align: right; }
+.d-hi { grid-area: hi; font-weight: 600; }
+.d-bar { grid-area: bar; position: relative; height: 6px; border-radius: 3px; background: var(--bg); }
+.d-bar span { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #4a8cff, #ff9f1c); }
+.d-label { grid-area: label; color: var(--muted); font-size: 12px; }
+.d-wind { grid-area: wind; color: var(--muted); font-size: 12px; text-align: right; white-space: nowrap; }
+.d-wind small { font-size: 11px; }
+
 .map-card { padding: 0; overflow: hidden; }
 #map { height: 360px; background: #0d1626; }
 .radar-img { image-rendering: auto; }
