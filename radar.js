@@ -98,8 +98,10 @@ function frameUrl(g, time) {
   return `${WMS}?${p}`;
 }
 
-async function decodePng(blob, w, h) {
-  const url = URL.createObjectURL(blob);
+// Decodes PNG bytes to RGBA pixels. The browser uses a canvas; the alert server swaps in
+// a Node decoder with setPngDecoder().
+let decodePng = async (bytes, w, h) => {
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
   try {
     const img = await new Promise((res, rej) => {
       const im = new Image();
@@ -115,7 +117,9 @@ async function decodePng(blob, w, h) {
   } finally {
     URL.revokeObjectURL(url);
   }
-}
+};
+
+export function setPngDecoder(fn) { decodePng = fn; }
 
 const cache = new Map();
 
@@ -124,7 +128,7 @@ export async function fetchFrame(g, time) {
   const key = `${g.key}|${time.getTime()}`;
   if (cache.has(key)) return cache.get(key);
   const resp = await fetchWithTimeout(frameUrl(g, time), 20000);
-  const px = await decodePng(await resp.blob(), g.w, g.h);
+  const px = await decodePng(await resp.arrayBuffer(), g.w, g.h);
   const dbz = new Float32Array(g.w * g.h).fill(NaN);
   for (let i = 0, p = 0; i < dbz.length; i++, p += 4) {
     if (px[p + 3] < 128) continue;

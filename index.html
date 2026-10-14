@@ -31,9 +31,30 @@
         <option value="metric">Metric (mm/h, km/h, °C)</option>
       </select>
     </label>
+    <h3>Alerts when the app is closed <span id="pushState" class="pill">Off</span></h3>
+    <p class="note">A notification about 15 minutes before rain, at your saved places and wherever you last
+      opened the app. On iPhone, open the app from its Home Screen icon to turn this on.</p>
+    <div class="row">
+      <button id="pushToggle" class="btn">Turn on</button>
+      <button id="pushTest" class="btn ghost" hidden>Send test alert</button>
+    </div>
+    <p id="pushMsg" class="note msg"></p>
+
+    <h3>Saved places</h3>
+    <ul id="placeList" class="places"></ul>
+    <div class="row">
+      <input id="placeName" type="text" maxlength="40" placeholder="Name, e.g. Home or Marina">
+      <button id="placeAdd" class="btn">Save this spot</button>
+    </div>
+    <p class="note">Saves the location the forecast is showing now. Tap the map first to save somewhere else.</p>
+
+    <h3>While the app is open</h3>
     <label class="check"><input type="checkbox" id="alerts"> Alert me when rain is within 15 minutes</label>
-    <p class="note">Alerts work while the app is open (it re-checks every 5 minutes). On iPhone, add the app
-      to your Home Screen first so it can show notifications.</p>
+
+    <details class="advanced">
+      <summary>Advanced</summary>
+      <label>Alert server address <input id="alertServer" type="url" inputmode="url" autocomplete="off"></label>
+    </details>
   </section>
 
   <section class="card hero">

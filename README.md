@@ -34,6 +34,10 @@ chance of precipitation, wind and gusts).
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |
+| `forecast.js` | Forecast pipeline and summary text, shared with the alert server |
+| `push.js` | Closed-app alert settings and push subscription |
+| `config.js` | Alert server address |
+| `server/` | Alert server (Node.js): runs the same forecast every 5 minutes and sends Web Push |
 | `tests.html` | Engine tests on synthetic storms; open in a browser |
 
 Testing a location: `index.html?lat=39.0&lon=-97.0`.
@@ -41,6 +45,19 @@ Testing a location: `index.html?lat=39.0&lon=-97.0`.
 ## Limits
 
 - Radar coverage is the lower 48 plus coastal waters (about 150–250 km offshore).
-- Alerts only work while the app is open; background alerts would need a push server.
 - Storms forming or dying within the hour are not predicted (a limit of any radar
   nowcast that moves existing echoes forward).
+
+## Alert server
+
+`server/` runs on an Oracle Cloud Always Free Ubuntu VM. It reuses the app's own modules, so
+alerts give the same answer as the app. Every 5 minutes it forecasts each subscriber's saved
+places and last-known location and sends a push about 15 minutes before rain (at most once
+per rain event per place). Install or update on the VM with:
+
+```
+curl -fsSL https://raw.githubusercontent.com/jlblan2/next-hour/main/server/install.sh | sudo bash
+```
+
+The VM pulls new commits from GitHub every 30 minutes. Status: `https://<server>/api/status`.
+Tests: `node server/test.js`.

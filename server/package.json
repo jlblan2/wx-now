@@ -1,0 +1,11 @@
+{
+  "name": "next-hour-alerts",
+  "private": true,
+  "type": "module",
+  "description": "Push alert server for the Next Hour app",
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "web-push": "3.6.7"
+  }
+}

@@ -1,11 +1,14 @@
 // App shell: network first so updates show up straight away, cache as the offline fallback.
 // Radar, model and map-tile requests always go to the network.
-const CACHE = 'nexthour-v3';
+const CACHE = 'nexthour-v4';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './forecast.js',
+  './push.js',
+  './config.js',
   './nowcast.js',
   './radar.js',
   './model.js',
@@ -50,4 +53,33 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => caches.match(req))
   );
+});
+
+// Rain alerts from the alert server.
+self.addEventListener('push', (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch { d = { body: event.data && event.data.text() }; }
+  event.waitUntil(self.registration.showNotification(d.title || 'Next Hour', {
+    body: d.body || '',
+    tag: d.tag || 'nexthour',
+    renotify: true,
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    data: { url: d.url || './' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data && event.notification.data.url || './', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) {
+      if (w.url.startsWith(self.registration.scope)) {
+        await w.focus();
+        return w.navigate(url);
+      }
+    }
+    return self.clients.openWindow(url);
+  })());
 });

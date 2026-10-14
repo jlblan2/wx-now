@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Marks the shared app modules as ES modules so the alert server (server/) can import them."
+}
