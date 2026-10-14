@@ -74,9 +74,14 @@ USING THE APP
 - "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.
 - Radar map: press Play to see the last 30 minutes and the next 60. The dashed line
   shows where your next hour of weather is coming from.
-- White arrows on the map show which way the rain is moving. Each arrow's length is
-  how far the rain travels in 15 minutes, so longer arrows mean faster storms. The
-  arrow button at the right of the map's play bar turns them on and off.
+- White arrows on the map show which way the rain is moving, tracked from radar
+  images. Teal arrows (one at each radar site, with a dot) show the wind measured by
+  that radar's Doppler at 10,000-20,000 ft, the height that carries rain. Both use the
+  same scale: an arrow's length is how far the rain or wind travels in 15 minutes.
+  When the two agree, the forecast is on firm ground. Tap a teal arrow for its numbers.
+  The arrow button at the right of the map's play bar turns both on and off.
+- The details at the bottom list "Storm motion (tracked)" and "Doppler wind" side by
+  side.
 - Tap the refresh arrow at the top to update. The app also refreshes every 5 minutes
   while it is open.
 - Settings > Units switches between US units (inches, mph, F) and metric.

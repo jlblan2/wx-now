@@ -1,6 +1,6 @@
 // App shell: network first so updates show up straight away, cache as the offline fallback.
 // Radar, model and map-tile requests always go to the network.
-const CACHE = 'nexthour-v5';
+const CACHE = 'nexthour-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './app.js',
   './forecast.js',
   './push.js',
+  './doppler.js',
   './config.js',
   './nowcast.js',
   './radar.js',

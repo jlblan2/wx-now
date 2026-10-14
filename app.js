@@ -1,5 +1,7 @@
 import { advectField, velocity } from './nowcast.js';
-import { toLatLon } from './radar.js';
+import { toLatLon, toPixel } from './radar.js';
+import { NEXRAD_SITES } from './data.js';
+import { dopplerWinds } from './doppler.js';
 import { fetchModel, describe } from './model.js';
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
@@ -152,10 +154,11 @@ function render() {
     if (mf.count) {
       const kmh = Math.hypot(vel.u, vel.v) * grid.dx * 60;
       const toward = compass(Math.atan2(vel.u, -vel.v) * 180 / Math.PI);
-      lines.push(['Storm motion', kmh < 3 ? 'Nearly stationary' : `Toward ${toward} at ${fmtSpeed(kmh)}`]);
+      lines.push(['Storm motion (tracked)', kmh < 3 ? 'Nearly stationary' : `Toward ${toward} at ${fmtSpeed(kmh)}`]);
     } else {
       lines.push(['Storm motion', r.radar.echo ? 'Not enough rain nearby to track' : 'No rain on radar nearby']);
     }
+    lines.push(['Doppler wind', '<span id="dopplerVal">Loading…</span>']);
     const age = Math.round(r.radar.age);
     lines.push(['Radar time', `${fmtTime(new Date(r.radar.now.time))} (${age} min ago)`]);
     const c = r.radar.check;
@@ -169,6 +172,7 @@ function render() {
   }
   lines.push(['Updated', fmtTime(new Date(state.lastRefresh))]);
   $('details').innerHTML = lines.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  if (r.radar && r.radar.doppler) showDopplerDetail(r);
   setStatus('');
 
   drawChart(r.series, r.noun);
@@ -286,10 +290,21 @@ function drawChart(series) {
 
 // ---------- map ----------
 
-let map, overlay, userMarker, trackLine, arrowLayer;
+let map, overlay, userMarker, trackLine, arrowLayer, dopplerLayer;
 
 const ARROW_STEP_KM = 36;      // spacing of the motion arrows
 const ARROW_MINUTES = 15;      // arrow length = distance moved in this many minutes
+
+// An arrow centred on grid point (x, y) for a motion of (u east, v south) pixels per minute,
+// as [shaft, head] polylines in lat/lon.
+function arrowAt(grid, x, y, u, v) {
+  const ll = (px, py) => { const p = toLatLon(grid, px, py); return [p.lat, p.lon]; };
+  const dx = u * ARROW_MINUTES / 2, dy = v * ARROW_MINUTES / 2;
+  const hx = x + dx, hy = y + dy, len = Math.hypot(dx, dy) * 2;
+  const head = Math.min(len * 0.35, 8 / grid.dx), ang = Math.atan2(dy, dx);
+  const wing = (a) => ll(hx - head * Math.cos(ang + a), hy - head * Math.sin(ang + a));
+  return [[ll(x - dx, y - dy), ll(hx, hy)], [wing(0.45), ll(hx, hy), wing(-0.45)]];
+}
 
 // Storm-motion arrows from the tracked motion field, only where rain was actually tracked
 // and there is rain nearby now. Each arrow shows the distance moved in 15 minutes.
@@ -298,7 +313,6 @@ function motionArrows(radar) {
   const lines = [];
   if (!mf.count) return lines;
   const step = Math.round(ARROW_STEP_KM / grid.dx), near = Math.round(14 / grid.dx);
-  const ll = (x, y) => { const p = toLatLon(grid, x, y); return [p.lat, p.lon]; };
   for (let y = step / 2; y < grid.h; y += step) {
     for (let x = step / 2; x < grid.w; x += step) {
       const ni = Math.round(y / mf.step) * mf.gw + Math.round(x / mf.step);
@@ -312,19 +326,65 @@ function motionArrows(radar) {
       if (!rain) continue;
       const v = velocity(mf, x, y);
       if (Math.hypot(v.u, v.v) * grid.dx * 60 < 5) continue;   // nearly stationary
-      const dx = v.u * ARROW_MINUTES / 2, dy = v.v * ARROW_MINUTES / 2;
-      const hx = x + dx, hy = y + dy, len = Math.hypot(dx, dy) * 2;
-      const head = Math.min(len * 0.35, 8 / grid.dx), ang = Math.atan2(dy, dx);
-      const wing = (a) => ll(hx - head * Math.cos(ang + a), hy - head * Math.sin(ang + a));
-      lines.push([ll(x - dx, y - dy), ll(hx, hy)], [wing(0.45), ll(hx, hy), wing(-0.45)]);
+      lines.push(...arrowAt(grid, x, y, v.u, v.v));
     }
   }
   return lines;
 }
 
+// Doppler wind arrows (teal) at each radar site on the map, from the radar's own VAD wind
+// profile, drawn to the same scale as the white tracking arrows.
+const KMH_PER_MS = 3.6;
+let dopplerFor = null;
+
+async function loadDoppler(r) {
+  const radar = r.radar;
+  dopplerFor = radar;
+  radar.doppler = null;
+  const g = radar.grid, margin = 30 / g.dx;
+  const sites = NEXRAD_SITES.filter(([, lat, lon]) => {
+    const p = toPixel(g, lat, lon);
+    return p.x > -margin && p.y > -margin && p.x < g.w + margin && p.y < g.h + margin;
+  });
+  const winds = await dopplerWinds(sites);
+  if (dopplerFor !== radar) return;   // a newer forecast replaced this one
+  radar.doppler = winds;
+  drawDoppler(radar);
+  showDopplerDetail(r);
+}
+
+function drawDoppler(radar) {
+  if (dopplerLayer) { dopplerLayer.remove(); dopplerLayer = null; }
+  if (!radar || !radar.doppler || !state.arrows) return;
+  const g = radar.grid, perMin = 60 / 1000 / g.dx;   // m/s -> grid pixels per minute
+  const layers = [];
+  for (const w of radar.doppler) {
+    const p = toPixel(g, w.lat, w.lon);
+    const lines = arrowAt(g, p.x, p.y, w.u * perMin, -w.v * perMin);
+    const tip = `${w.id} Doppler wind, 10,000–20,000 ft: toward ${compass(Math.atan2(w.u, w.v) * 180 / Math.PI)} at ${fmtSpeed(Math.hypot(w.u, w.v) * KMH_PER_MS)}`;
+    layers.push(
+      L.polyline(lines, { color: '#0a1220', weight: 5, opacity: 0.5, interactive: false }),
+      L.polyline(lines, { color: '#3ee6c1', weight: 2.5, opacity: 1 }).bindTooltip(tip),
+      L.circleMarker([w.lat, w.lon], { radius: 4, color: '#0a1220', weight: 1, fillColor: '#3ee6c1', fillOpacity: 1 }).bindTooltip(tip),
+    );
+  }
+  dopplerLayer = L.layerGroup(layers).addTo(map);
+}
+
+function showDopplerDetail(r) {
+  const el = $('dopplerVal');
+  if (!el) return;
+  const ws = r.radar.doppler || [];
+  if (!ws.length) { el.textContent = 'No recent wind profile from nearby radars'; return; }
+  const near = ws.map((w) => ({ w, d: Math.hypot(w.lat - r.loc.lat, (w.lon - r.loc.lon) * Math.cos(r.loc.lat * Math.PI / 180)) }))
+    .sort((a, b) => a.d - b.d)[0].w;
+  el.textContent = `Toward ${compass(Math.atan2(near.u, near.v) * 180 / Math.PI)} at ${fmtSpeed(Math.hypot(near.u, near.v) * KMH_PER_MS)} (${near.id} radar, 10,000–20,000 ft)`;
+}
+
 function drawArrows(radar) {
   if (arrowLayer) { arrowLayer.remove(); arrowLayer = null; }
   $('arrowBtn').classList.toggle('on', state.arrows);
+  drawDoppler(radar);
   if (!radar || !state.arrows) return;
   const lines = motionArrows(radar);
   if (!lines.length) return;
@@ -414,6 +474,7 @@ function renderMap(r) {
     }
     trackLine = L.polyline(pts, { color: '#ff9f1c', weight: 2, dashArray: '4 6', opacity: 0.9 }).addTo(map);
   }
+  if (dopplerFor !== r.radar) loadDoppler(r);
   r.radar.images = frames.map((f) => frameImage(f.rate, grid.w, grid.h));
   const nowIdx = frames.findIndex((f) => f.forecast) - 1;
   const slider = $('frameSlider');
