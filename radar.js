@@ -38,6 +38,24 @@ export function makeGrid(lat, lon) {
   return g;
 }
 
+// Latest Doppler radial-velocity image (base velocity, lowest tilt) from one radar, covering
+// the 230 km the product reaches. Green is motion toward the radar, red away from it.
+export function velocityImage(site, lat, lon) {
+  const half = 240000 / Math.cos(lat * Math.PI / 180);
+  const mx = toMercX(lon), my = toMercY(lat);
+  const p = new URLSearchParams({
+    sector: site, prod: 'N0U',
+    SERVICE: 'WMS', VERSION: '1.1.1', REQUEST: 'GetMap', LAYERS: 'single', STYLES: '',
+    SRS: 'EPSG:3857', BBOX: [mx - half, my - half, mx + half, my + half].map((v) => v.toFixed(1)).join(','),
+    WIDTH: 600, HEIGHT: 600, FORMAT: 'image/png', TRANSPARENT: 'true',
+    t: Math.floor(Date.now() / 120000),   // new image at most every 2 minutes
+  });
+  return {
+    url: `https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/ridge.cgi?${p}`,
+    bounds: [[fromMercY(my - half), fromMercX(mx - half)], [fromMercY(my + half), fromMercX(mx + half)]],
+  };
+}
+
 export function toPixel(g, lat, lon) {
   return {
     x: (toMercX(lon) - g.minX) / (g.maxX - g.minX) * g.w - 0.5,

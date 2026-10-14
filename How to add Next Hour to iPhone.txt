@@ -82,6 +82,11 @@ USING THE APP
   The arrow button at the right of the map's play bar turns both on and off.
 - The details at the bottom list "Storm motion (tracked)" and "Doppler wind" side by
   side.
+- The "V" button on the map's play bar switches to the red/green Doppler velocity map
+  from the nearest radar: green is moving toward the radar, red away from it, purple
+  is unresolved. It only shows motion along the radar beam; bright red right next to
+  bright green means strong rotation or a sharp wind shift. Tap "V" again to go back
+  to the rain map.
 - Tap the refresh arrow at the top to update. The app also refreshes every 5 minutes
   while it is open.
 - Settings > Units switches between US units (inches, mph, F) and metric.

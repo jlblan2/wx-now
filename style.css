@@ -122,7 +122,16 @@ main {
 }
 .frame-label { font-size: 12px; color: var(--muted); min-width: 132px; text-align: right; font-variant-numeric: tabular-nums; }
 .frame-label.fc { color: var(--accent); }
-.play.arrows { color: var(--muted); }
+.play.arrows, .play.vel { color: var(--muted); font-weight: 700; }
+.play.vel.on { color: var(--text); border-color: #3ee6c1; }
+.play:disabled { opacity: 0.4; cursor: default; }
+.vel-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px 0; font-size: 12px; color: var(--muted); }
+.vel-legend .sw { width: 14px; height: 10px; border-radius: 2px; margin-left: 6px; }
+.vel-legend .sw:first-child { margin-left: 0; }
+.sw.toward { background: linear-gradient(90deg, #02fc02, #017e01); }
+.sw.away { background: linear-gradient(90deg, #fd0000, #7f0000); }
+.sw.folded { background: #7f00cf; }
+.vel-note { flex-basis: 100%; }
 .play.arrows.on { color: var(--text); border-color: var(--accent); }
 
 .hint { margin: 8px 12px 12px; color: var(--muted); font-size: 12px; }

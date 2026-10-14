@@ -1,5 +1,5 @@
 import { advectField, velocity } from './nowcast.js';
-import { toLatLon, toPixel } from './radar.js';
+import { toLatLon, toPixel, velocityImage } from './radar.js';
 import { NEXRAD_SITES } from './data.js';
 import { dopplerWinds } from './doppler.js';
 import { fetchModel, describe } from './model.js';
@@ -29,6 +29,7 @@ const state = {
   frameIdx: 0,
   playing: null,
   arrows: store.get('arrows', true),
+  velocity: false,
 };
 
 // ---------- formatting ----------
@@ -290,7 +291,7 @@ function drawChart(series) {
 
 // ---------- map ----------
 
-let map, overlay, userMarker, trackLine, arrowLayer, dopplerLayer;
+let map, overlay, userMarker, trackLine, arrowLayer, dopplerLayer, velLayer;
 
 const ARROW_STEP_KM = 36;      // spacing of the motion arrows
 const ARROW_MINUTES = 15;      // arrow length = distance moved in this many minutes
@@ -482,12 +483,39 @@ function renderMap(r) {
   slider.value = nowIdx;
   if (overlay) overlay.remove();
   overlay = L.imageOverlay(r.radar.images[nowIdx], grid.bounds, { opacity: 0.85, className: 'radar-img' }).addTo(map);
+  state.frameIdx = nowIdx;
   showFrame(nowIdx);
+  drawVelocity();
+}
+
+// Doppler velocity mode: the nearest radar's red/green radial-velocity image replaces the
+// rain layer (the loop and slider pause while it is shown).
+function drawVelocity() {
+  const r = state.result;
+  if (velLayer) { velLayer.remove(); velLayer = null; }
+  $('velBtn').classList.toggle('on', state.velocity);
+  $('velLegend').hidden = !state.velocity;
+  const rainShown = !state.velocity;
+  if (overlay) overlay.setOpacity(rainShown ? 0.85 : 0);
+  $('frameSlider').disabled = !rainShown;
+  $('playBtn').disabled = !rainShown;
+  if (!r || !r.site) return;
+  if (!state.velocity) { if (r.radar) showFrame(state.frameIdx); return; }
+  stopPlay();
+  const site = r.site;
+  const [, slat, slon] = NEXRAD_SITES.find(([id]) => id === site.id) || [];
+  if (slat === undefined) return;
+  const img = velocityImage(site.id, slat, slon);
+  velLayer = L.imageOverlay(img.url, img.bounds, { opacity: 0.8, className: 'radar-img' }).addTo(map);
+  velLayer.on('error', () => { $('frameLabel').textContent = `${site.id} velocity unavailable`; });
+  $('frameLabel').textContent = `${site.id} Doppler velocity · latest scan`;
+  $('frameLabel').classList.remove('fc');
+  $('velSite').textContent = site.id;
 }
 
 function showFrame(i) {
   const r = state.result;
-  if (!r || !r.radar || !overlay) return;
+  if (!r || !r.radar || !overlay || state.velocity) return;
   const f = r.radar.map[i];
   overlay.setUrl(r.radar.images[i]);
   $('frameSlider').value = i;
@@ -566,6 +594,10 @@ function bindUi() {
   });
   $('frameSlider').addEventListener('input', (e) => { stopPlay(); showFrame(+e.target.value); });
   $('playBtn').addEventListener('click', togglePlay);
+  $('velBtn').addEventListener('click', () => {
+    state.velocity = !state.velocity;
+    drawVelocity();
+  });
   $('arrowBtn').addEventListener('click', () => {
     state.arrows = !state.arrows;
     store.set('arrows', state.arrows);

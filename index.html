@@ -82,9 +82,16 @@
       <button id="playBtn" class="play" aria-label="Play radar loop">&#9654;</button>
       <input id="frameSlider" type="range" min="0" max="0" value="0" aria-label="Radar frame">
       <span id="frameLabel" class="frame-label"></span>
+      <button id="velBtn" class="play vel" aria-label="Show Doppler velocity map" title="Doppler velocity (red/green)">V</button>
       <button id="arrowBtn" class="play arrows" aria-label="Show storm motion arrows" title="Storm motion arrows">&#x27A4;</button>
     </div>
-    <p class="hint">White arrows: rain movement tracked on radar. Teal arrows: wind measured by each radar's Doppler (10,000–20,000 ft). Both show 15 minutes of travel. Dashed line: where the next hour's weather is coming from. Tap the map to forecast another spot.
+    <div id="velLegend" class="vel-legend" hidden>
+      <span class="sw toward"></span> toward <span id="velSite">radar</span>
+      <span class="sw away"></span> away from it
+      <span class="sw folded"></span> unresolved (range folded)
+      <span class="vel-note">Shows only motion along the radar beam. Bright red next to bright green = strong rotation or wind shift.</span>
+    </div>
+    <p class="hint">White arrows: rain movement tracked on radar. Teal arrows: wind measured by each radar's Doppler (10,000–20,000 ft). Both show 15 minutes of travel. Dashed line: where the next hour's weather is coming from. V: red/green Doppler velocity from the nearest radar. Tap the map to forecast another spot.
       <button id="gpsBtn" class="link-btn" hidden>Back to my location</button></p>
   </section>
 
