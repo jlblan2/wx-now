@@ -16,10 +16,12 @@ import { stormAlerts } from './stormalerts.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
+import { passageMeta, passageStep } from './passage.js';
 
 const PORT = +(process.env.PORT || 8787);
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
 const NAVY_DIR = process.env.NAVY_DIR || path.join(DATA_DIR, 'navy');
+const PASSAGE_DIR = process.env.PASSAGE_DIR || path.join(DATA_DIR, 'passage');
 const ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://jlblan2.github.io,http://localhost:8430').split(',');
 const CHECK_MS = 5 * 60000;
 const LAST_LOCATION_MAX_H = 72;   // ignore a last location older than this
@@ -240,6 +242,8 @@ const routes = {
 
   // Navy (FNMOC) forecasts: run info, and the series at one point.
   'GET /api/navy/meta': async () => navyMeta(NAVY_DIR),
+  // Sailing weather maps: which NOAA and Navy runs are available.
+  'GET /api/passage/meta': async () => passageMeta(PASSAGE_DIR, NAVY_DIR),
   'GET /api/navy/point': async (_, q) => navyPoint(NAVY_DIR, +q.get('lat'), +q.get('lon')),
 
   // { subscription, places, last: {lat, lon} } — creates or replaces a subscriber.
@@ -320,6 +324,14 @@ const server = http.createServer(async (req, res) => {
       'Cache-Control': 'public, max-age=21600',
     });
     return fs.createReadStream(p).pipe(res);
+  }
+  const step = req.method === 'GET' && url.pathname.match(/^\/api\/passage\/(noaa|navy)\/(\d{10})\/(\d{3})\.bin$/);
+  if (step) {
+    let buf = null;
+    try { buf = passageStep(PASSAGE_DIR, NAVY_DIR, step[1], step[2], step[3]); } catch { /* fall through to 404 */ }
+    if (!buf) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'public, max-age=21600' });
+    return res.end(buf);
   }
   const route = routes[`${req.method} ${url.pathname}`];
   if (!route) { res.writeHead(404); return res.end(); }

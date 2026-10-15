@@ -81,6 +81,32 @@ OnUnitActiveSec=1h
 WantedBy=timers.target
 EOF
 
+# Sailing weather: NOAA GFS + GFS-Wave for the East Coast and Gulf (checks hourly).
+mkdir -p "$DATA/passage"
+chown nexthour:nexthour "$DATA/passage"
+cat > /etc/systemd/system/next-hour-passage.service <<EOF
+[Unit]
+Description=Fetch NOAA GFS and GFS-Wave sailing weather for Next Hour
+After=network-online.target
+[Service]
+Type=oneshot
+User=nexthour
+Environment=PASSAGE_DIR=$DATA/passage
+ExecStart=/usr/bin/python3 $APP/server/passage/fetch_gfs.py
+TimeoutStartSec=45min
+Nice=10
+EOF
+
+cat > /etc/systemd/system/next-hour-passage.timer <<EOF
+[Unit]
+Description=Check NOMADS hourly for new GFS runs
+[Timer]
+OnBootSec=6min
+OnUnitActiveSec=1h
+[Install]
+WantedBy=timers.target
+EOF
+
 # Pick up new releases from GitHub automatically (checks every 30 minutes).
 cat > /usr/local/bin/next-hour-update <<EOF
 #!/usr/bin/env bash
@@ -127,12 +153,13 @@ IP=$(curl -fsS -4 https://api.ipify.org)
 HOST="$(echo "$IP" | tr . -).sslip.io"
 cat > /etc/caddy/Caddyfile <<EOF
 $HOST {
+  encode zstd gzip
   reverse_proxy 127.0.0.1:8787
 }
 EOF
 
 systemctl daemon-reload
-systemctl enable --now next-hour next-hour-update.timer next-hour-navy.timer
+systemctl enable --now next-hour next-hour-update.timer next-hour-navy.timer next-hour-passage.timer
 systemctl restart next-hour
 systemctl reload caddy || systemctl restart caddy
 
