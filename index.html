@@ -125,6 +125,15 @@
       <button id="marineMapBtn" class="link-btn">Show zone on map</button></p>
   </section>
 
+  <section data-tab="seas" id="tideCard" class="card tides">
+    <h2>Tides</h2>
+    <select id="tideStation" aria-label="Tide station"></select>
+    <p id="tideNow" class="tide-now">Loading…</p>
+    <canvas id="tideChart" aria-label="Tide curve for the next 3 days"></canvas>
+    <div id="tideTable" class="tide-table"></div>
+    <p id="tideMeta" class="note"></p>
+  </section>
+
   <section data-tab="seas" id="passageCard" class="card passage">
     <h2>Sailing weather · East Coast, Gulf, Bahamas, Caribbean &amp; Bermuda</h2>
     <div id="pwRegions" class="pw-regions"></div>

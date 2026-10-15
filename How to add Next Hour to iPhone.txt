@@ -96,8 +96,8 @@ one you used. Each tab has its own forecasts:
                    Navy second opinion and current details.
   Hurricanes     - active Atlantic storms (or a note when there are none), NHC's
                    tropical weather outlook, the storm map and storm surge maps.
-  Seas & swell   - your marine zone forecast, the sailing weather charts and the Navy
-                   wave map.
+  Seas & swell   - your marine zone forecast, tides, the sailing weather charts and
+                   the Navy wave map.
 The map at the bottom of each tab shows only that tab's layers. Tapping a hurricane
 alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
 
@@ -160,6 +160,12 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
 - "Navy waves" (under the map) shows the Navy's wave height forecast in colour, with
   white arrows for the direction the waves are travelling. Drag its slider to step
   through the next 5 days.
+- "Tides" (Seas & swell) shows NOAA tide predictions for the nearest tide station:
+  whether the tide is rising or falling and its height now, the next high and low,
+  a 3-day tide curve and each day's highs and lows. Pick another station from the
+  menu (listed nearest first). Heights are above mean lower low water (MLLW), the
+  datum on nautical charts. These are predictions; strong winds and low or high
+  pressure can push actual water levels above or below them.
 - "Sailing weather" is a sailing weather chart for the US East Coast, the Gulf
   of America, the Bahamas, the Caribbean and Bermuda. Pick a region (Gulf, Florida,
   Bahamas, Caribbean, Western or Eastern Caribbean, Bermuda, the East Coast to Bermuda

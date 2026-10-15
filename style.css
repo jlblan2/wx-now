@@ -247,3 +247,15 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .outlook .risk { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9px; color: #111; margin-left: 4px; }
 .outlook .none { color: var(--accent-2, #2ec4b6); font-weight: 600; }
 .outlook-x { background: none; border: none; font: 700 18px/22px -apple-system, system-ui, sans-serif; text-align: center; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+
+/* tides */
+.tides select { width: 100%; padding: 8px; margin-bottom: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.tide-now { margin: 4px 0 6px; font-size: 14px; }
+#tideChart { width: 100%; height: 150px; display: block; }
+.tide-table table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.tide-table th { text-align: left; color: var(--muted); font-weight: 500; padding: 5px 6px 5px 0; vertical-align: top; white-space: nowrap; }
+.tide-table td { padding: 5px 0; border-top: 1px solid var(--border); }
+.tide-table tr:first-child td { border-top: none; }
+.tide-table span { display: inline-block; margin-right: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tide-table .hi { color: var(--text); }
+.tide-table .lo { color: var(--muted); }

@@ -38,6 +38,7 @@ chance of precipitation, wind and gusts).
 | `compare.js` | Second opinion: NOAA GFS / GFS-Wave vs Navy NAVGEM / WAVEWATCH III, daily, with disagreements flagged |
 | `passage.js` | Sailing weather charts (wind barbs, waves, isobars + rain, visibility) for the East Coast, Gulf, Bahamas, Caribbean and Bermuda |
 | `outlook.js` | NHC Atlantic Tropical Weather Outlook: text (TWO AT) and areas to watch with 2/7-day chances |
+| `tides.js`, `tidestations.js` | NOAA CO-OPS tide predictions (2,301 Atlantic-side stations, loaded only in Seas & swell) |
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |

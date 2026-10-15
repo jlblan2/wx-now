@@ -98,6 +98,7 @@ async function refresh() {
     loadStorms();
     loadOutlook();
     loadMarine(loc);
+    if (state.tab === 'seas') loadTides();
     const { site, quality } = radarCoverage(loc);
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
     let radar = null, radarErr = null;
@@ -1005,6 +1006,23 @@ function showStormOnMap(i) {
   $('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// ---------- tides (Seas & swell) ----------
+
+let tidesMod = null;
+async function loadTides() {
+  const loc = (state.result && state.result.loc) || state.picked || state.gps;
+  if (!loc) return;
+  try {
+    if (!tidesMod) {
+      tidesMod = await import('./tides.js');
+      tidesMod.initTides({ metric, esc, picked: () => !!state.picked });
+    }
+    tidesMod.showTides(loc);
+  } catch (e) {
+    $('tideNow').textContent = `Tides unavailable: ${e.message}`;
+  }
+}
+
 // ---------- tabs ----------
 
 const TAB_PANES = { local: ['tabLocal'], storms: ['tabStorms', 'surge'], seas: ['tabSeas'] };
@@ -1052,7 +1070,7 @@ function setTab(tab, { remember = true } = {}) {
     $('wavesSel').value = 'on';
     setWaves(true);
   }
-  if (tab === 'seas') passageShown();
+  if (tab === 'seas') { passageShown(); loadTides(); }
   window.scrollTo({ top: 0 });
 }
 
@@ -1155,7 +1173,7 @@ function bindUi() {
   });
   $('settingsBtn').addEventListener('click', () => { $('settings').hidden = !$('settings').hidden; });
   $('units').value = state.units;
-  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); });
+  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); if (state.tab === 'seas') loadTides(); });
   $('alerts').checked = state.alerts;
   $('alerts').addEventListener('change', (e) => setAlerts(e.target.checked));
   window.addEventListener('resize', () => state.result && drawChart(state.result.series));
