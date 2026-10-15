@@ -59,7 +59,8 @@ function rgba(ramp, v) {
 async function loadStep(m, i) {
   const key = `${m.model}/${m.cycle}/${m.steps[i]}`;
   if (!cache.has(key)) {
-    const p = fetch(`${opts.server()}/api/passage/${m.model}/${m.cycle}/${String(m.steps[i]).padStart(3, '0')}.bin`)
+    // The grid size in the query keeps cached files from an older area layout from being reused.
+    const p = fetch(`${opts.server()}/api/passage/${m.model}/${m.cycle}/${String(m.steps[i]).padStart(3, '0')}.bin?g=${m.lat0},${m.nlat}x${m.nlon}`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); })
       .then((b) => new Int16Array(b));
     cache.set(key, p);
