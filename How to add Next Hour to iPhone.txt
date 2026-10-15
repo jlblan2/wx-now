@@ -87,8 +87,8 @@ Three tabs under the title keep the screen uncluttered; the app remembers the la
 one you used. Each tab has its own forecasts:
   Local weather  - next-hour rain, the radar map, next 24 hours, 7 days, the NOAA vs
                    Navy second opinion and current details.
-  Hurricanes     - active Atlantic storms (or a note when there are none), the storm
-                   map and storm surge maps.
+  Hurricanes     - active Atlantic storms (or a note when there are none), NHC's
+                   tropical weather outlook, the storm map and storm surge maps.
   Seas & swell   - your marine zone forecast, the sailing weather charts and the Navy
                    wave map.
 The map at the bottom of each tab shows only that tab's layers. Tapping a hurricane
@@ -102,6 +102,11 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   storm force, red = hurricane force) and coastal watches/warnings (yellow = tropical
   storm watch, blue = tropical storm warning, pink = hurricane watch, red = hurricane
   warning). Untick "on map" in the card to hide the storm drawing.
+- Tropical weather outlook (Hurricanes tab): NHC's latest Atlantic outlook, issued
+  every 6 hours, with each area NHC is watching and its chance of becoming a tropical
+  cyclone in the next 2 and 7 days (yellow = low, orange = medium, red = high). The
+  same areas are shaded on the storm map, with arrows showing where they are expected
+  to move and an X at their present position.
 - Storm surge: the "Storm surge" menu under the map shows NHC's storm surge maps.
   "If a Category 1-5 hurricane hits" are planning maps: the worst flooding NHC expects
   for that strength (blue = up to 3 ft above ground, yellow = over 3 ft, orange = over

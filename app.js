@@ -4,6 +4,7 @@ import { NEXRAD_SITES } from './data.js';
 import { dopplerWinds } from './doppler.js';
 import { activeStorms, category, threatTo, threatText, WARNING_NAMES } from './storms.js';
 import { SURGE_CLASSES, riskExport, liveExport, surgeRiskAt, riskSummary } from './surge.js';
+import { tropicalOutlook, RISK_COLORS } from './outlook.js';
 import { zonesByDistance, zoneFor, marineForecast, zoneGeometry } from './marine.js';
 import { fetchModel, describe } from './model.js';
 import {
@@ -95,6 +96,7 @@ async function refresh() {
   setStatus('Updating…');
   try {
     loadStorms();
+    loadOutlook();
     loadMarine(loc);
     const { site, quality } = radarCoverage(loc);
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
@@ -819,6 +821,80 @@ async function loadSurgeRisk(r) {
   if (state.result === r) render();
 }
 
+// ---------- NHC tropical weather outlook ----------
+
+let outlookLayer = null;
+
+async function loadOutlook() {
+  try {
+    state.outlook = await tropicalOutlook();
+  } catch (e) {
+    $('outlookBody').innerHTML = `<p class="note">Outlook unavailable: ${esc(e.message)}</p>`;
+    return;
+  }
+  renderOutlookCard();
+  drawOutlookLayers();
+}
+
+function renderOutlookCard() {
+  const o = state.outlook;
+  if (!o) return;
+  const riskBadge = (r) => (RISK_COLORS[r] ? `<span class="risk" style="background:${RISK_COLORS[r]}">${esc(r)}</span>` : '');
+  if (!o.text) {
+    $('outlookBody').innerHTML = '<p class="note">The outlook text is unavailable right now.</p>';
+  } else {
+    $('outlookBody').innerHTML = o.text.paras.map((p) => {
+      const m = p.match(/^\* Formation chance through (48 hours|7 days)\.\.\.(\w+)\.\.\.(.+?)\.?$/i);
+      if (m) {
+        return `<span class="chance">${m[1] === '48 hours' ? '2-day' : '7-day'} chance: ${esc(m[3].replace(/^near /, '').trim())}${riskBadge(m[2][0].toUpperCase() + m[2].slice(1).toLowerCase())}</span>`;
+      }
+      if (/formation is not expected/i.test(p)) return `<p class="none">${esc(p)}</p>`;
+      if (/:$/.test(p) && p.length < 70) return `<p><strong>${esc(p)}</strong></p>`;
+      return `<p>${esc(p).replace(/^(\d\.\s)/, '<strong>$1</strong>')}</p>`;
+    }).join('');
+  }
+  const when = o.textTime ? new Date(o.textTime).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+  $('outlookMeta').innerHTML = `National Hurricane Center${when ? `, issued ${esc(when)}` : ''}${o.text && o.text.forecaster ? ` · ${esc(o.text.forecaster)}` : ''}` +
+    `${o.areas.length ? ` · ${o.areas.length} area${o.areas.length > 1 ? 's' : ''} on the map` : ''} · ` +
+    '<a href="https://www.nhc.noaa.gov/gtwo.php?basin=atlc" target="_blank" rel="noopener">NHC outlook page</a>';
+}
+
+// Areas NHC is watching (shaded by 7-day chance), their expected motion and present location.
+function drawOutlookLayers() {
+  if (outlookLayer) { outlookLayer.remove(); outlookLayer = null; }
+  const o = state.outlook;
+  if (!o || !state.stormMap || !map) return;
+  const tip = (p) => `NHC outlook: ${p.prob2day || '?'} chance in 2 days, ${p.prob7day || '?'} in 7 days`;
+  const layers = [];
+  for (const f of o.areas) {
+    const c = RISK_COLORS[f.properties.risk7day] || RISK_COLORS.Low;
+    layers.push(L.geoJSON(f.geometry, { pane: 'tabStorms', style: { color: c, weight: 2, fillColor: c, fillOpacity: 0.25, dashArray: '6 4' } })
+      .bindTooltip(tip(f.properties)));
+  }
+  for (const f of o.motion) {
+    const c = RISK_COLORS[f.properties.risk7day] || '#ffffff';
+    layers.push(L.geoJSON(f.geometry, { pane: 'tabStorms', interactive: false, style: { color: c, weight: 3 } }));
+    // Arrowhead at the end of the motion line.
+    const coords = f.geometry.type === 'LineString' ? f.geometry.coordinates : (f.geometry.coordinates || []).flat();
+    if (coords.length >= 2) {
+      const [x1, y1] = coords[coords.length - 2], [x2, y2] = coords[coords.length - 1];
+      const ang = Math.atan2(y2 - y1, (x2 - x1) * Math.cos(y2 * Math.PI / 180)), len = 0.8;
+      const wing = (a) => [y2 - Math.sin(ang + a) * len, x2 - Math.cos(ang + a) * len / Math.cos(y2 * Math.PI / 180)];
+      layers.push(L.polyline([wing(0.45), [y2, x2], wing(-0.45)], { pane: 'tabStorms', color: c, weight: 3, interactive: false }));
+    }
+  }
+  for (const f of o.points) {
+    if (!f.geometry || f.geometry.type !== 'Point') continue;
+    const [lon, lat] = f.geometry.coordinates;
+    const c = RISK_COLORS[f.properties.risk7day] || RISK_COLORS.Low;
+    layers.push(L.marker([lat, lon], {
+      pane: 'tabStorms',
+      icon: L.divIcon({ className: 'outlook-x', html: `<span style="color:${c}">✕</span>`, iconSize: [22, 22], iconAnchor: [11, 11] }),
+    }).bindTooltip(tip(f.properties)));
+  }
+  if (layers.length) outlookLayer = L.layerGroup(layers).addTo(map);
+}
+
 // ---------- tropical storms ----------
 
 // Saffir-Simpson colours by category (TD, TS, 1-5), NHC watch/warning colours, wind radii.
@@ -937,7 +1013,8 @@ const tabViews = {};   // map centre/zoom remembered per tab
 function defaultView(tab) {
   const loc = (state.result && state.result.loc) || state.picked || state.gps;
   if (tab === 'storms') {
-    const shapes = state.storms.flatMap((s) => [...s.cone, ...s.track]).map((g) => L.geoJSON(g));
+    const shapes = [...state.storms.flatMap((s) => [...s.cone, ...s.track]), ...((state.outlook && state.outlook.areas) || []).map((f) => f.geometry)]
+      .map((g) => L.geoJSON(g));
     return shapes.length ? { bounds: L.featureGroup(shapes).getBounds().pad(0.1) } : { bounds: L.latLngBounds([[8, -100], [45, -50]]) };
   }
   if (tab === 'seas') return loc ? { center: [loc.lat, loc.lon], zoom: 6 } : { bounds: L.latLngBounds([[17, -98], [45, -60]]) };
@@ -1057,6 +1134,7 @@ function bindUi() {
     state.stormMap = e.target.checked;
     store.set('stormMap', state.stormMap);
     drawStormLayers();
+    drawOutlookLayers();
   });
   $('stormList').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-storm]');

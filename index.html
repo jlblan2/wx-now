@@ -105,7 +105,12 @@
   <section id="noStormCard" class="card" data-tab="storms" hidden>
     <h2>Tropical storms</h2>
     <p>No active Atlantic tropical storms right now.</p>
-    <p class="note">Check the <a href="https://www.nhc.noaa.gov/gtwo.php?basin=atlc" target="_blank" rel="noopener">NHC tropical weather outlook</a> for areas being watched. The storm surge maps below work any time.</p>
+  </section>
+
+  <section id="outlookCard" class="card outlook" data-tab="storms">
+    <h2>Tropical weather outlook</h2>
+    <div id="outlookBody"><p class="note">Loading…</p></div>
+    <p id="outlookMeta" class="note"></p>
   </section>
 
   <div class="map-slot" data-slot="storms"></div>
