@@ -216,7 +216,8 @@ def main():
         return 0
     log('processing', cycle)
     rows, cols = region_index()
-    pac = pacific_mask(LAT0 + np.arange(len(rows)) * RES, LON0 + np.arange(len(cols)) * RES)
+    lats, lons = LAT0 + np.arange(len(rows)) * RES, LON0 + np.arange(len(cols)) * RES
+    pac = None   # built from the first wave field, so it follows the model's coastline
     shape = (len(VARS), len(STEPS), len(rows), len(cols))
     data = np.full(shape, MISSING, np.int16)
     names = list(VARS)
@@ -236,8 +237,10 @@ def main():
                     continue
                 grids.update(extract(path, source, rows, cols))
                 os.remove(path)
+            if pac is None and 'swh' in grids:
+                pac = pacific_mask(lats, lons, ~np.isnan(grids['swh']))
             for g in grids.values():
-                g[pac] = np.nan
+                g[pac if pac is not None else pacific_mask(lats, lons)] = np.nan
             for vi, name in enumerate(names):
                 g = grids.get(name)
                 if g is None:

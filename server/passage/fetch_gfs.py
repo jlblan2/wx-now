@@ -168,7 +168,8 @@ def main():
     os.makedirs(part)
     work = tempfile.mkdtemp(prefix='passage-')
     done = []
-    pac = pacific_mask(LAT0 + np.arange(NLAT) * RES, LON0 + np.arange(NLON) * RES)
+    lats, lons = LAT0 + np.arange(NLAT) * RES, LON0 + np.arange(NLON) * RES
+    pac = None   # built from the first wave field, so it follows the model's coastline
     try:
         for h in STEPS:
             fields = {}
@@ -182,8 +183,10 @@ def main():
                 time.sleep(PAUSE)
             if not fields:
                 continue
+            if pac is None and 'swh' in fields:
+                pac = pacific_mask(lats, lons, ~np.isnan(fields['swh']))
             for g in fields.values():
-                g[pac] = np.nan
+                g[pac if pac is not None else pacific_mask(lats, lons)] = np.nan
             data = np.full((len(VARS), NLAT, NLON), MISSING, np.int16)
             for vi, (name, *_rest, scale) in enumerate(VARS):
                 g = fields.get(name)

@@ -22,8 +22,31 @@ PACIFIC = [
 ]
 
 
-def pacific_mask(lats, lons):
-    """Boolean grid (len(lats) x len(lons)), True over the Pacific."""
+def pacific_mask(lats, lons, water=None):
+    """Boolean grid (len(lats) x len(lons)), True over the Pacific.
+
+    The polygon stays a little offshore, so with `water` (True on sea cells, e.g. where
+    the wave model has values) every sea cell connected to the open Pacific is added too,
+    following the model's own coastline right up to the shore. Central America separates
+    the two oceans in the model's land mask, so this never spreads into the Caribbean.
+    """
+    inside = _polygon(lats, lons)
+    if water is None:
+        return inside
+    water = np.asarray(water, bool)
+    out = inside.copy()
+    stack = list(zip(*np.nonzero(inside & water)))
+    nr, nc = water.shape
+    while stack:
+        r, c = stack.pop()
+        for rr, cc in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):
+            if 0 <= rr < nr and 0 <= cc < nc and water[rr, cc] and not out[rr, cc]:
+                out[rr, cc] = True
+                stack.append((rr, cc))
+    return out
+
+
+def _polygon(lats, lons):
     lat, lon = np.meshgrid(np.asarray(lats, float), np.asarray(lons, float), indexing='ij')
     inside = np.zeros(lat.shape, bool)
     pts = PACIFIC
