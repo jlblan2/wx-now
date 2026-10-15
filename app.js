@@ -9,7 +9,8 @@ import { fetchModel, describe } from './model.js';
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
 } from './forecast.js';
-import { initPush, reportLocation, pushEnabled, syncMarine } from './push.js';
+import { initPush, reportLocation, pushEnabled, syncMarine, alertServerUrl } from './push.js';
+import { secondOpinion } from './compare.js';
 
 const REFRESH_MS = 5 * 60000;
 
@@ -192,6 +193,7 @@ function render() {
   drawChart(r.series, r.noun);
   renderOutlook(r.model);
   loadSurgeRisk(r);
+  if (r.second) renderSecondOpinion(r); else loadSecondOpinion(r);
   if (state.storms.length) renderStorms();
   renderMap(r);
 }
@@ -557,6 +559,121 @@ function togglePlay() {
   }, 600);
 }
 
+// ---------- Navy (FNMOC) waves on the map + second-opinion card ----------
+
+let navyMeta = null, wavesImg = null, wavesArrows = null;
+const WAVE_KEY = [[0, '#285ac8'], [2, '#3c96e6'], [4, '#28c8c8'], [6, '#5ad25a'], [8, '#f0dc3c'], [12, '#fa8c28'], [16, '#e63228'], [25, '#be28be']];
+
+async function loadNavyMeta() {
+  const server = alertServerUrl();
+  if (!server) throw new Error('No alert server');
+  const resp = await fetch(`${server}/api/navy/meta`);
+  const j = await resp.json();
+  if (!resp.ok) throw new Error(j.error || 'Navy data unavailable');
+  navyMeta = j;
+  return j;
+}
+
+async function setWaves(on) {
+  if (wavesImg) { wavesImg.remove(); wavesImg = null; }
+  if (wavesArrows) { wavesArrows.remove(); wavesArrows = null; }
+  $('wavesCtl').hidden = $('wavesLegend').hidden = !on;
+  if (!on) return;
+  try {
+    const m = await loadNavyMeta();
+    const base = Date.parse(m.base);
+    const slider = $('wavesSlider');
+    slider.max = m.steps.length - 1;
+    let now = 0;
+    m.steps.forEach((h, i) => { if (base + h * 3600000 <= Date.now()) now = i; });
+    slider.value = now;
+    $('wavesLegend').innerHTML = WAVE_KEY.map(([ft, c], i) =>
+      `<span><i style="background:${c}"></i>${metric() ? `${Math.round(ft * 0.3048 * 10) / 10}` : ft}${i === WAVE_KEY.length - 1 ? '+' : ''}</span>`).join('') +
+      `<span>${metric() ? 'm' : 'ft'} · Navy WAVEWATCH III</span>`;
+    showWaveStep(now);
+  } catch (e) {
+    $('wavesCtl').hidden = false;
+    $('wavesLabel').textContent = `Navy waves unavailable: ${e.message}`;
+  }
+}
+
+async function showWaveStep(i) {
+  const m = navyMeta;
+  if (!m) return;
+  const h = m.steps[i], hh = String(h).padStart(3, '0');
+  const files = `${alertServerUrl()}/api/navy/files/${m.cycle}`;
+  if (!wavesImg) {
+    wavesImg = L.imageOverlay(`${files}/waves_${hh}.png`, m.bounds, { pane: 'surge', opacity: 0.8, interactive: false }).addTo(map);
+  } else {
+    wavesImg.setUrl(`${files}/waves_${hh}.png`);
+  }
+  const t = new Date(Date.parse(m.base) + h * 3600000);
+  $('wavesLabel').textContent = `${t.toLocaleString([], { weekday: 'short', hour: 'numeric' })}`;
+  try {
+    const pts = await (await fetch(`${files}/arrows_${hh}.json`)).json();
+    if (navyMeta !== m || +$('wavesSlider').value !== i) return;
+    if (wavesArrows) wavesArrows.remove();
+    // Arrows point the way the waves travel (the data gives where they come from).
+    const lines = [];
+    for (const [lat, lon, , from] of pts) {
+      const to = (from + 180) * Math.PI / 180, len = 0.6, k = Math.cos(lat * Math.PI / 180);
+      const dy = Math.cos(to) * len / 2, dx = Math.sin(to) * len / 2 / k;
+      const head = [lat + dy, lon + dx];
+      const wing = (a) => [head[0] - Math.cos(to + a) * len * 0.3, head[1] - Math.sin(to + a) * len * 0.3 / k];
+      lines.push([[lat - dy, lon - dx], head], [wing(0.5), head, wing(-0.5)]);
+    }
+    wavesArrows = L.layerGroup([
+      L.polyline(lines, { pane: 'surge', color: '#0a1220', weight: 3, opacity: 0.4, interactive: false }),
+      L.polyline(lines, { pane: 'surge', color: '#ffffff', weight: 1.2, opacity: 0.85, interactive: false }),
+    ]).addTo(map);
+  } catch { /* arrows are optional */ }
+}
+
+const cToF = (c) => c * 9 / 5 + 32;
+const fmtT = (c) => `${Math.round(metric() ? c : cToF(c))}°`;
+const fmtRain = (mm) => (mm === null || mm === undefined ? '—' : metric() ? `${mm.toFixed(mm < 10 ? 1 : 0)}` : (mm / 25.4).toFixed(2));
+const fmtWindN = (kmh) => (kmh === null || kmh === undefined ? '—' : `${Math.round(metric() ? kmh : kmh * 0.621371)}`);
+const fmtWave = (m) => (m === null || m === undefined ? '—' : metric() ? m.toFixed(1) : `${Math.round(m * 3.28084)}`);
+
+async function loadSecondOpinion(r) {
+  const card = $('secondCard');
+  const server = alertServerUrl();
+  if (!server) { card.hidden = true; return; }
+  if (r.second !== undefined) return;
+  r.second = null;
+  try {
+    r.second = await secondOpinion(server, r.loc.lat, r.loc.lon);
+  } catch (e) {
+    r.second = { error: e.message };
+  }
+  if (state.result === r) renderSecondOpinion(r);
+}
+
+function renderSecondOpinion(r) {
+  const card = $('secondCard'), s = r.second;
+  if (!s) return;
+  card.hidden = false;
+  if (s.error || !s.rows.length) {
+    $('secondBody').innerHTML = `<p class="note">${esc(s.error ? (/outside/i.test(s.error) ? 'This spot is outside the Navy forecast area (0–60°N, 130–50°W).' : `Navy forecast unavailable: ${s.error}`) : 'No overlapping days yet.')}</p>`;
+    $('secondNote').textContent = '';
+    return;
+  }
+  const names = { hi: 'high', lo: 'low', rain: metric() ? 'rain' : 'rain', wind: 'wind', wave: 'waves' };
+  const flagged = s.rows.filter((x) => x.flags.length);
+  const dayName = (d) => new Date(`${d}T12:00:00`).toLocaleDateString([], { weekday: 'short' });
+  const summary = flagged.length
+    ? `The models disagree on ${flagged.map((x) => `${dayName(x.date)} (${x.flags.map((f) => names[f]).join(', ')})`).join('; ')} — lower confidence there.`
+    : 'NOAA and the Navy agree closely for the next few days — higher confidence in the forecast.';
+  const cell = (row, k, fmt) => `<td class="${row.flags.includes(k) ? 'flag' : ''}">${fmt(row.noaa[k])}<small>${fmt(row.navy[k])}</small></td>`;
+  const temp = (v) => (v === null || v === undefined ? '—' : fmtT(v));
+  $('secondBody').innerHTML = `<p class="summary">${esc(summary)}</p>
+    <table><thead><tr><th>Day</th><th>High</th><th>Low</th><th>Rain ${metric() ? 'mm' : 'in'}</th><th>Wind ${metric() ? 'km/h' : 'mph'}</th>${s.coastal ? `<th>Waves ${metric() ? 'm' : 'ft'}</th>` : ''}</tr></thead>
+    <tbody>${s.rows.map((row) => `<tr><td>${dayName(row.date)}<small>NOAA / Navy</small></td>
+      ${cell(row, 'hi', temp)}${cell(row, 'lo', temp)}${cell(row, 'rain', fmtRain)}${cell(row, 'wind', fmtWindN)}${s.coastal ? cell(row, 'wave', fmtWave) : ''}</tr>`).join('')}</tbody></table>
+    <p class="key">Top: NOAA (GFS${s.coastal ? ', GFS-Wave' : ''}). Below: Navy (NAVGEM${s.coastal ? ', WAVEWATCH III' : ''}). Orange = the two disagree. Wind is the day's strongest sustained wind.</p>`;
+  $('secondNote').textContent = `Navy run ${new Date(s.navyRun).toLocaleString([], { weekday: 'short', hour: 'numeric' })}. Navy highs and lows come from 3- to 6-hourly values, so they can run slightly milder than NOAA's.`;
+}
+
 // ---------- marine forecast (Gulf and Atlantic) ----------
 
 let marineLayer = null, marineLoc = null, marineZoneShown = null;
@@ -860,6 +977,9 @@ function bindUi() {
     const p = e.target.closest('.marine-period');
     if (p) { const full = p.querySelector('.full'); full.hidden = !full.hidden; }
   });
+  $('wavesSel').addEventListener('change', (e) => { store.set('navyWaves', e.target.value); setWaves(!!e.target.value); });
+  $('wavesSlider').addEventListener('input', (e) => showWaveStep(+e.target.value));
+  $('wavesSel').value = store.get('navyWaves', '');
   $('surgeSel').value = state.surge;
   $('surgeSel').addEventListener('change', (e) => {
     state.surge = e.target.value;
@@ -904,6 +1024,7 @@ async function main() {
   initPush(() => state.picked || state.gps);
   initMap();
   if (state.surge && !state.surge.startsWith('live:')) setSurge(state.surge);
+  if (store.get('navyWaves', '')) setWaves(true);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   const fromUrl = urlLocation();
   if (fromUrl) state.picked = fromUrl;

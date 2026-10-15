@@ -35,6 +35,7 @@ chance of precipitation, wind and gusts).
 | `storms.js` | NHC tropical storms (cone, track, wind field, watches/warnings) and per-place threat checks |
 | `surge.js` | NHC storm surge: planning maps by category, live surge forecast, risk at a point |
 | `marine.js` | NWS Gulf and Atlantic marine zone forecasts and marine alerts (api.weather.gov) |
+| `compare.js` | Second opinion: NOAA GFS / GFS-Wave vs Navy NAVGEM / WAVEWATCH III, daily, with disagreements flagged |
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |
@@ -63,5 +64,8 @@ per rain event per place). Install or update on the VM with:
 curl -fsSL https://raw.githubusercontent.com/jlblan2/next-hour/main/server/install.sh | sudo bash
 ```
 
-The VM pulls new commits from GitHub every 30 minutes. Status: `https://<server>/api/status`.
+The VM pulls new commits from GitHub every 30 minutes. It also fetches each new U.S. Navy
+(FNMOC) run from NOAA NOMADS hourly (`server/navy/fetch_navy.py`): NAVGEM and the Navy
+WAVEWATCH III ensemble control member, 0-120 h, cut to 0-60N 130-50W, served to the app
+at `/api/navy/*` for the wave map and the second-opinion card. Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.

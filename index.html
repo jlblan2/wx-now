@@ -84,6 +84,12 @@
     <div id="daily" class="daily"></div>
   </section>
 
+  <section id="secondCard" class="card second" hidden>
+    <h2>Second opinion: NOAA vs Navy</h2>
+    <div id="secondBody"></div>
+    <p id="secondNote" class="note"></p>
+  </section>
+
   <section class="card map-card">
     <div id="map"></div>
     <div id="mapBar" class="map-bar" hidden>
@@ -112,6 +118,15 @@
         <option value="5">If a Category 5 hurricane hits</option>
       </select>
     </div>
+    <div class="surge-bar navy-bar">
+      <label for="wavesSel">Navy waves</label>
+      <select id="wavesSel"><option value="">Off</option><option value="on">Wave height and direction</option></select>
+    </div>
+    <div id="wavesCtl" class="waves-ctl" hidden>
+      <input id="wavesSlider" type="range" min="0" max="0" value="0" aria-label="Wave forecast time">
+      <span id="wavesLabel" class="frame-label"></span>
+    </div>
+    <div id="wavesLegend" class="surge-legend" hidden></div>
     <div id="surgeLegend" class="surge-legend" hidden></div>
     <p id="surgeNote" class="hint" hidden></p>
   </section>

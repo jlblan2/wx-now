@@ -120,6 +120,14 @@ USING THE APP
   colour at the top. Tap a period for the full NWS text. Use the menu to pick another
   zone (listed nearest first, distances in nautical miles); "Show zone on map" outlines
   it. Note: the NWS now calls it the Gulf of America in its forecasts.
+- "Second opinion: NOAA vs Navy" compares NOAA's forecast models (GFS, GFS-Wave)
+  with the U.S. Navy's (NAVGEM and WAVEWATCH III from Fleet Numerical Meteorology and
+  Oceanography Center) for the next 5 days: high, low, rain, strongest wind and, on the
+  water, highest waves. In each box the top number is NOAA and the lower is the Navy.
+  Orange marks a disagreement; when the two agree, the forecast is more trustworthy.
+- "Navy waves" (under the map) shows the Navy's wave height forecast in colour, with
+  white arrows for the direction the waves are travelling. Drag its slider to step
+  through the next 5 days.
 - Settings > Units switches between US units (inches, mph, F) and metric.
 
 

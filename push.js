@@ -14,6 +14,7 @@ let currentSpot = () => null;   // set by initPush: the location shown in the ap
 let lastSent = store.get('pushLastSent', null);
 
 const server = () => (store.get('alertServer', '') || ALERT_SERVER).replace(/\/+$/, '');
+export const alertServerUrl = server;
 const places = () => store.get('places', []);
 export const pushEnabled = () => !!store.get('pushOn', false);
 
