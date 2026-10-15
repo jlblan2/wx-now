@@ -4,6 +4,7 @@ import { NEXRAD_SITES } from './data.js';
 import { dopplerWinds } from './doppler.js';
 import { activeStorms, category, threatTo, threatText, WARNING_NAMES } from './storms.js';
 import { SURGE_CLASSES, riskExport, liveExport, surgeRiskAt, riskSummary } from './surge.js';
+import { zonesByDistance, zoneFor, marineForecast, zoneGeometry } from './marine.js';
 import { fetchModel, describe } from './model.js';
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
@@ -35,6 +36,7 @@ const state = {
   stormMap: store.get('stormMap', true),
   storms: [],
   surge: store.get('surge', ''),
+  marineZone: store.get('marineZone', 'auto'),
 };
 
 // ---------- formatting ----------
@@ -91,6 +93,7 @@ async function refresh() {
   setStatus('Updating…');
   try {
     loadStorms();
+    loadMarine(loc);
     const { site, quality } = radarCoverage(loc);
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
     let radar = null, radarErr = null;
@@ -554,6 +557,68 @@ function togglePlay() {
   }, 600);
 }
 
+// ---------- Gulf marine forecast ----------
+
+let marineLayer = null, marineLoc = null, marineZoneShown = null;
+const NM_PER_KM = 0.539957;
+
+// Advisory colours, roughly following NWS hazard colours.
+function alertColor(event) {
+  if (/hurricane|typhoon/i.test(event)) return '#ff6060';
+  if (/storm|gale|special marine/i.test(event)) return '#ff9a3d';
+  if (/small craft|hazardous seas|brisk/i.test(event)) return '#ffd34d';
+  return '#9fd3ff';
+}
+
+function fillZoneOptions(loc) {
+  const sel = $('marineZone');
+  const zones = zonesByDistance(loc);
+  sel.innerHTML = `<option value="auto">Nearest to ${state.picked ? 'this spot' : 'you'} (automatic)</option>` +
+    zones.map((z) => `<option value="${z.id}">${loc ? `${Math.round(z.km * NM_PER_KM)} nm · ` : ''}${esc(z.name)} (${z.id})</option>`).join('');
+  sel.value = state.marineZone;
+  if (sel.value !== state.marineZone) { state.marineZone = 'auto'; sel.value = 'auto'; }
+}
+
+async function loadMarine(loc) {
+  marineLoc = loc;
+  fillZoneOptions(loc);
+  const body = $('marineBody');
+  try {
+    const zone = state.marineZone === 'auto' ? await zoneFor(loc) : state.marineZone;
+    const f = await marineForecast(zone);
+    if (marineLoc !== loc) return;   // a newer location took over
+    marineZoneShown = zone;
+    $('marineAlerts').innerHTML = f.alerts.map((a) =>
+      `<span style="background:${alertColor(a.event)}" title="${esc(a.headline || '')}">${esc(a.event)}</span>`).join('');
+    body.innerHTML = `<p><strong>${esc(f.name)}</strong></p>` + (f.periods.slice(0, 6).map((p) => `
+      <div class="marine-period">
+        <h4>${esc(p.name)}</h4>
+        ${p.wind ? `<p><span class="lbl">Wind</span> ${esc(p.wind)}</p>` : ''}
+        ${p.seas ? `<p><span class="lbl">Seas</span> ${esc(p.seas)}</p>` : ''}
+        ${p.water ? `<p><span class="lbl">Bays</span> ${esc(p.water.replace(/^Bay and inland waters\s*/i, ''))}</p>` : ''}
+        <p class="full" hidden>${esc(p.text)}</p>
+      </div>`).join('') || '<p class="note">No forecast available for this zone right now.</p>');
+    const upd = f.updated ? new Date(f.updated) : null;
+    $('marineMeta').textContent = `NWS zone ${zone}${upd ? ` · updated ${upd.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : ''} · tap a period for the full text ·`;
+    if (marineLayer) showMarineZone(false);
+  } catch (e) {
+    body.innerHTML = `<p class="note">Marine forecast unavailable: ${esc(e.message)}</p>`;
+  }
+}
+
+async function showMarineZone(fit = true) {
+  if (!marineZoneShown) return;
+  try {
+    const g = await zoneGeometry(marineZoneShown);
+    if (marineLayer) marineLayer.remove();
+    marineLayer = L.geoJSON(g, { interactive: false, style: { color: '#3ee6c1', weight: 2, fillColor: '#3ee6c1', fillOpacity: 0.08 } }).addTo(map);
+    if (fit) {
+      map.fitBounds(marineLayer.getBounds().pad(0.15));
+      $('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  } catch { /* outline unavailable: nothing to draw */ }
+}
+
 // ---------- storm surge ----------
 
 let surgeOverlays = [], surgeUpdate = null, surgeToken = 0;
@@ -784,6 +849,16 @@ function bindUi() {
   });
   $('frameSlider').addEventListener('input', (e) => { stopPlay(); showFrame(+e.target.value); });
   $('playBtn').addEventListener('click', togglePlay);
+  $('marineZone').addEventListener('change', (e) => {
+    state.marineZone = e.target.value;
+    store.set('marineZone', state.marineZone);
+    if (marineLoc) loadMarine(marineLoc);
+  });
+  $('marineMapBtn').addEventListener('click', () => showMarineZone(true));
+  $('marineBody').addEventListener('click', (e) => {
+    const p = e.target.closest('.marine-period');
+    if (p) { const full = p.querySelector('.full'); full.hidden = !full.hidden; }
+  });
   $('surgeSel').value = state.surge;
   $('surgeSel').addEventListener('change', (e) => {
     state.surge = e.target.value;

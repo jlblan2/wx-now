@@ -194,3 +194,15 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .surge-legend i { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
 #surgeNote { margin-top: 6px; }
 .leaflet-surge-pane img { image-rendering: auto; }
+
+/* Gulf marine forecast */
+.marine select { width: 100%; padding: 8px; margin-bottom: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.marine-alerts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.marine-alerts span { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 10px; color: #111; }
+.marine-period { border-top: 1px solid var(--border); padding: 8px 0; cursor: pointer; }
+.marine-period:first-child { border-top: none; }
+.marine-period h4 { margin: 0 0 3px; font-size: 14px; }
+.marine-period p { margin: 2px 0; font-size: 13px; }
+.marine-period .lbl { color: var(--muted); display: inline-block; min-width: 44px; }
+.marine-period .full { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.marine-meta { margin-top: 6px; }

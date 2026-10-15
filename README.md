@@ -34,6 +34,7 @@ chance of precipitation, wind and gusts).
 | `doppler.js` | Doppler wind arrows: each radar's VAD Wind Profile (Level III NVW) from NOAA's AWS archive |
 | `storms.js` | NHC tropical storms (cone, track, wind field, watches/warnings) and per-place threat checks |
 | `surge.js` | NHC storm surge: planning maps by category, live surge forecast, risk at a point |
+| `marine.js` | NWS Gulf marine zone forecasts and marine alerts (api.weather.gov) |
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |

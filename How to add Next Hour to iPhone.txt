@@ -107,6 +107,12 @@ USING THE APP
   to the rain map.
 - Tap the refresh arrow at the top to update. The app also refreshes every 5 minutes
   while it is open.
+- "Gulf marine forecast" (below the map) shows the National Weather Service forecast
+  for the Gulf marine zone nearest you: wind, seas and bay conditions for the next
+  few days, with any Small Craft Advisory, Gale Warning or other marine alert shown in
+  colour at the top. Tap a period for the full NWS text. Use the menu to pick another
+  zone (listed nearest first, distances in nautical miles); "Show zone on map" outlines
+  it. Note: the NWS now calls it the Gulf of America in its forecasts.
 - Settings > Units switches between US units (inches, mph, F) and metric.
 
 
