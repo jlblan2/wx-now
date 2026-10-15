@@ -1,5 +1,5 @@
 // Sailing weather: Forecast maps for the US East Coast, the Gulf
-// of America, the Bahamas and the Caribbean. Wind (speed colours + barbs in knots), waves (height + direction), pressure
+// of America, the Bahamas, the Caribbean and Bermuda. Wind (speed colours + barbs in knots), waves (height + direction), pressure
 // (isobars + rain) and visibility, 3-hourly over 7 days, from NOAA GFS / GFS-Wave or the
 // Navy's NAVGEM / WAVEWATCH III, served as compact grids by the alert server.
 
@@ -11,6 +11,9 @@ const REGIONS = {
   caribbean: { name: 'Caribbean', bounds: [[8.5, -88], [23.5, -59]] },
   westcarib: { name: 'Western Caribbean', bounds: [[9, -88.5], [23, -74]] },
   eastcarib: { name: 'Eastern Caribbean', bounds: [[10, -75.5], [20.5, -58.5]] },
+  bermuda: { name: 'Bermuda', bounds: [[29.8, -68.5], [34.8, -61]] },
+  tobermuda: { name: 'East Coast → Bermuda', bounds: [[30.5, -77.5], [42, -61.5]] },
+  bdacarib: { name: 'Bermuda → Caribbean', bounds: [[16, -71], [34, -59]] },
   southeast: { name: 'Southeast', bounds: [[28, -82], [36.5, -72]] },
   midatl: { name: 'Mid-Atlantic', bounds: [[34, -78.5], [42, -67]] },
   newengland: { name: 'New England', bounds: [[39, -75], [46.5, -63]] },
@@ -338,7 +341,7 @@ async function start() {
     if (loc) {
       let best = Infinity;
       for (const [k, r] of Object.entries(REGIONS)) {
-        if (k === 'coast') continue;
+        if (k === 'coast' || k === 'tobermuda' || k === 'bdacarib') continue;
         const [[s, w], [n, e]] = r.bounds, d = ((s + n) / 2 - loc.lat) ** 2 + ((w + e) / 2 - loc.lon) ** 2;
         if (d < best) { best = d; region = k; }
       }

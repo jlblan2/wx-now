@@ -119,7 +119,11 @@ USING THE APP
   few days, with any Small Craft Advisory, Gale Warning or other marine alert shown in
   colour at the top. Tap a period for the full NWS text. Use the menu to pick another
   zone (listed nearest first, distances in nautical miles); "Show zone on map" outlines
-  it. Note: the NWS now calls it the Gulf of America in its forecasts.
+  it. Offshore and open-ocean zones (Gulf offshore, Caribbean, the Bahamas and SW
+  Atlantic, Mid-Atlantic and New England offshore) come from the NWS Offshore Waters
+  Forecasts. Bermuda's own waters are forecast by the Bermuda Weather Service
+  (weather.bm), which the card links to near Bermuda. Note: the NWS now calls it the
+  Gulf of America in its forecasts.
 - "Second opinion: NOAA vs Navy" compares NOAA's forecast models (GFS, GFS-Wave)
   with the U.S. Navy's (NAVGEM and WAVEWATCH III from Fleet Numerical Meteorology and
   Oceanography Center) for the next 5 days: high, low, rain, strongest wind and, on the
@@ -129,9 +133,10 @@ USING THE APP
   white arrows for the direction the waves are travelling. Drag its slider to step
   through the next 5 days.
 - "Sailing weather" is a sailing weather chart for the US East Coast, the Gulf
-  of America, the Bahamas and the Caribbean. Pick a region (Gulf, Florida, Bahamas,
-  Caribbean, Western or Eastern Caribbean, Southeast, Mid-Atlantic, New England or the
-  whole area) and a chart:
+  of America, the Bahamas, the Caribbean and Bermuda. Pick a region (Gulf, Florida,
+  Bahamas, Caribbean, Western or Eastern Caribbean, Bermuda, the East Coast to Bermuda
+  and Bermuda to Caribbean passages, Southeast, Mid-Atlantic, New England or the whole
+  area) and a chart:
     Wind - colours by speed with standard wind barbs in knots (each full feather is 10
            kt, half feather 5 kt, triangle 50 kt; the barb points where the wind comes from)
     Waves - wave height with arrows showing which way the waves are travelling

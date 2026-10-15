@@ -708,7 +708,14 @@ async function loadMarine(loc) {
     marineZoneShown = zone;
     $('marineAlerts').innerHTML = f.alerts.map((a) =>
       `<span style="background:${alertColor(a.event)}" title="${esc(a.headline || '')}">${esc(a.event)}</span>`).join('');
-    body.innerHTML = `<p><strong>${esc(f.name)}</strong></p>` + (f.periods.slice(0, 6).map((p) => `
+    // Far from any NWS zone (e.g. Bermuda), say so; Bermuda's own waters are the Bermuda Weather Service's.
+    const nearestNm = zonesByDistance(loc)[0].km * NM_PER_KM;
+    const nearBermuda = Math.hypot(loc.lat - 32.3, (loc.lon + 64.8) * Math.cos(32.3 * Math.PI / 180)) * 60 < 150;
+    const farNote = state.marineZone === 'auto' && nearestNm > 60
+      ? `<p class="note">No NWS marine zone covers this spot; showing the nearest, ${Math.round(nearestNm)} nm away.${nearBermuda
+        ? ' For Bermuda\'s local waters see the <a href="https://www.weather.bm/" target="_blank" rel="noopener">Bermuda Weather Service</a>.' : ''}</p>`
+      : '';
+    body.innerHTML = `${farNote}<p><strong>${esc(f.name)}</strong></p>` + (f.periods.slice(0, 6).map((p) => `
       <div class="marine-period">
         <h4>${esc(p.name)}</h4>
         ${p.wind ? `<p><span class="lbl">Wind</span> ${esc(p.wind)}</p>` : ''}
@@ -717,7 +724,7 @@ async function loadMarine(loc) {
         <p class="full" hidden>${esc(p.text)}</p>
       </div>`).join('') || '<p class="note">No forecast available for this zone right now.</p>');
     const upd = f.updated ? new Date(f.updated) : null;
-    $('marineMeta').textContent = `NWS zone ${zone}${upd ? ` · updated ${upd.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : ''} · tap a period for the full text ·`;
+    $('marineMeta').textContent = `${f.source ? `${f.source}, zone` : 'NWS zone'} ${zone}${upd ? ` · updated ${upd.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : ''} · tap a period for the full text ·`;
     if (marineLayer) showMarineZone(false);
   } catch (e) {
     body.innerHTML = `<p class="note">Marine forecast unavailable: ${esc(e.message)}</p>`;
