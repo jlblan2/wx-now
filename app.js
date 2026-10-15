@@ -11,6 +11,7 @@ import {
 } from './forecast.js';
 import { initPush, reportLocation, pushEnabled, syncMarine, alertServerUrl } from './push.js';
 import { secondOpinion } from './compare.js';
+import { initPassage, passageUnitsChanged } from './passage.js';
 
 const REFRESH_MS = 5 * 60000;
 
@@ -1007,7 +1008,7 @@ function bindUi() {
   });
   $('settingsBtn').addEventListener('click', () => { $('settings').hidden = !$('settings').hidden; });
   $('units').value = state.units;
-  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); });
+  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); });
   $('alerts').checked = state.alerts;
   $('alerts').addEventListener('change', (e) => setAlerts(e.target.checked));
   window.addEventListener('resize', () => state.result && drawChart(state.result.series));
@@ -1023,6 +1024,7 @@ async function main() {
   bindUi();
   initPush(() => state.picked || state.gps);
   initMap();
+  initPassage({ server: alertServerUrl, loc: () => state.picked || state.gps, metric, compass });
   if (state.surge && !state.surge.startsWith('live:')) setSurge(state.surge);
   if (store.get('navyWaves', '')) setWaves(true);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

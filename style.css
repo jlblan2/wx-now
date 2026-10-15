@@ -28,7 +28,7 @@ header {
   position: sticky;
   top: 0;
   background: var(--bg);
-  z-index: 1000;
+  z-index: 1100;   /* above Leaflet's map controls */
 }
 
 h1 { font-size: 20px; margin: 0; letter-spacing: 0.3px; }
@@ -219,3 +219,14 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .second td.flag { color: #ffb74d; font-weight: 600; }
 .second .summary { margin: 0 0 8px; font-size: 14px; }
 .second .key { color: var(--muted); font-size: 11px; margin: 6px 0 0; }
+
+/* sailing weather */
+.passage { padding: 14px 0 0; overflow: hidden; }
+.passage h2 { padding: 0 14px; }
+.pw-regions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; }
+.chip { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+.chip.on { border-color: var(--accent); color: var(--accent); }
+.pw-row { display: flex; gap: 8px; padding: 0 12px 8px; }
+.pw-row select { flex: 1; min-width: 0; padding: 7px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+#pwMap { height: 420px; background: #0d1626; }
+.isobar-label { color: #fff; font: 600 11px -apple-system, system-ui, sans-serif; text-align: center; text-shadow: 0 0 3px #000, 0 0 3px #000; background: none; border: none; }

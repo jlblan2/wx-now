@@ -131,6 +131,31 @@
     <p id="surgeNote" class="hint" hidden></p>
   </section>
 
+  <section id="passageCard" class="card passage">
+    <h2>Sailing weather · East Coast &amp; Gulf</h2>
+    <div id="pwRegions" class="pw-regions"></div>
+    <div class="pw-row">
+      <select id="pwProduct" aria-label="Map">
+        <option value="wind">Wind (barbs, knots)</option>
+        <option value="waves">Waves</option>
+        <option value="pressure">Pressure &amp; rain</option>
+        <option value="vis">Visibility (fog)</option>
+      </select>
+      <select id="pwModel" aria-label="Model">
+        <option value="noaa">NOAA GFS · 7 days</option>
+        <option value="navy">Navy NAVGEM · 5 days</option>
+      </select>
+    </div>
+    <div id="pwMap"></div>
+    <div class="map-bar">
+      <button id="pwPlay" class="play" aria-label="Play forecast">&#9654;</button>
+      <input id="pwSlider" type="range" min="0" max="0" value="0" aria-label="Forecast time">
+      <span id="pwLabel" class="frame-label"></span>
+    </div>
+    <div id="pwLegend" class="surge-legend"></div>
+    <p id="pwInfo" class="hint">Tap the map for wind, waves, pressure, rain and visibility at that spot.</p>
+  </section>
+
   <section id="marineCard" class="card marine">
     <h2>Marine forecast</h2>
     <select id="marineZone" aria-label="Marine zone"></select>

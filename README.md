@@ -36,6 +36,7 @@ chance of precipitation, wind and gusts).
 | `surge.js` | NHC storm surge: planning maps by category, live surge forecast, risk at a point |
 | `marine.js` | NWS Gulf and Atlantic marine zone forecasts and marine alerts (api.weather.gov) |
 | `compare.js` | Second opinion: NOAA GFS / GFS-Wave vs Navy NAVGEM / WAVEWATCH III, daily, with disagreements flagged |
+| `passage.js` | Sailing weather charts (wind barbs, waves, isobars + rain, visibility) for the East Coast and Gulf |
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |
@@ -67,5 +68,8 @@ curl -fsSL https://raw.githubusercontent.com/jlblan2/next-hour/main/server/insta
 The VM pulls new commits from GitHub every 30 minutes. It also fetches each new U.S. Navy
 (FNMOC) run from NOAA NOMADS hourly (`server/navy/fetch_navy.py`): NAVGEM and the Navy
 WAVEWATCH III ensemble control member, 0-120 h, cut to 0-60N 130-50W, served to the app
-at `/api/navy/*` for the wave map and the second-opinion card. Status: `https://<server>/api/status`.
+at `/api/navy/*` for the wave map and the second-opinion card. For the Sailing weather charts it
+also fetches each GFS run (`server/passage/fetch_gfs.py`, NOMADS grib filter: 10 m wind, gusts,
+pressure, rain rate, visibility, GFS-Wave height/period/direction; 17-47N 100-60W, 0.25 deg,
+3-hourly to 168 h), served gzipped at `/api/passage/*` alongside the Navy run in the same layout. Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
