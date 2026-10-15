@@ -335,7 +335,7 @@ const server = http.createServer(async (req, res) => {
     const gz = /gzip/.test(req.headers['accept-encoding'] || '');
     res.writeHead(200, {
       'Content-Type': 'application/octet-stream', 'Cache-Control': 'public, max-age=21600',
-      Vary: 'Accept-Encoding', ...(gz ? { 'Content-Encoding': 'gzip' } : {}),
+      Vary: 'Origin, Accept-Encoding', ...(gz ? { 'Content-Encoding': 'gzip' } : {}),
     });
     return res.end(gz ? zlib.gzipSync(buf, { level: 6 }) : buf);
   }
