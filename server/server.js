@@ -332,7 +332,7 @@ const server = http.createServer(async (req, res) => {
     try { buf = passageStep(PASSAGE_DIR, NAVY_DIR, step[1], step[2], step[3]); } catch { /* fall through to 404 */ }
     if (!buf) { res.writeHead(404); return res.end(); }
     // Caddy only compresses text types, so gzip these grids here (about 4x smaller).
-    const gz = /gzip/.test(req.headers['accept-encoding'] || '');
+    const gz = /gzip/.test(req.headers['accept-encoding'] || '');
     res.writeHead(200, {
       'Content-Type': 'application/octet-stream', 'Cache-Control': 'public, max-age=21600',
       Vary: 'Accept-Encoding', ...(gz ? { 'Content-Encoding': 'gzip' } : {}),
