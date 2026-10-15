@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Navy (FNMOC) forecasts for Next Hour, from NOAA NOMADS.
 
-Downloads the latest complete run of
+Downloads the latest complete run (0-120 h: 3-hourly to 24 h, then 6-hourly) of
   - NAVGEM, the Navy's global weather model (temperature, wind, rain, pressure), and
   - the Navy WAVEWATCH III wave ensemble control member (wave height, period, direction),
 cuts out the US region, and writes for the alert server:
@@ -30,7 +30,7 @@ from PIL import Image
 NOMADS = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/fnmoc/prod'
 OUT = os.environ.get('NAVY_DIR', '/var/lib/next-hour/navy')
 UA = {'User-Agent': 'NextHour alert server (github.com/jlblan2/next-hour)'}
-STEPS = [int(x) for x in os.environ['NAVY_STEPS'].split(',')] if os.environ.get('NAVY_STEPS') else list(range(0, 121, 3))   # forecast hours
+STEPS = [int(x) for x in os.environ['NAVY_STEPS'].split(',')] if os.environ.get('NAVY_STEPS') else list(range(0, 24, 3)) + list(range(24, 121, 6))   # NAVGEM is 3-hourly to 24 h, then 6-hourly
 LAT0, LAT1, LON0, LON1 = 0.0, 60.0, -130.0, -50.0   # region (0.5 degree grid)
 RES = 0.5
 KEEP_CYCLES = 2
@@ -225,7 +225,11 @@ def main():
         for si, h in enumerate(STEPS):
             grids = {}
             for source, url in (('navgem', nav_url(cycle, h)), ('wave', wave_url(cycle, h))):
-                path = get(url, os.path.join(work, source))
+                try:
+                    path = get(url, os.path.join(work, source))
+                except Exception as e:  # noqa: BLE001 - one missing file leaves a gap, not a failed run
+                    log('skip', url, e)
+                    continue
                 grids.update(extract(path, source, rows, cols))
                 os.remove(path)
             for vi, name in enumerate(names):
