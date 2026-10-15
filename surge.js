@@ -1,6 +1,6 @@
 // Storm surge maps from NOAA/NHC map services:
 //  - Storm Surge Risk (planning): worst-case flooding above ground for a hurricane of each
-//    category, from NHC's SLOSH "maximum of maximums". Always available.
+//    category, from NHC's SLOSH "maximum of maximums". Always available. Atlantic regions only.
 //  - Potential Storm Surge Flooding (live): issued per Atlantic storm when storm surge
 //    watches/warnings are in effect for the US, plus NHC's peak surge ranges for the coast.
 
@@ -39,8 +39,9 @@ async function loadRiskIds() {
   const j = await getJson(`${RISK}?f=json`);
   const byId = new Map(j.layers.map((l) => [l.id, l]));
   const ids = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+  const top = (l) => { while (l && l.parentLayerId !== -1) l = byId.get(l.parentLayerId); return l; };
   for (const l of j.layers) {
-    if (l.name !== 'Image') continue;
+    if (l.name !== 'Image' || (top(l) || {}).name !== 'Atlantic') continue;   // Atlantic side only
     const m = (byId.get(l.parentLayerId) || {}).name?.match(/^Category (\d)$/);
     if (m) ids[m[1]].push(l.id);
   }

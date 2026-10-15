@@ -107,3 +107,27 @@ run('marine alerts: once per NWS alert, only for my zones and qualifying events'
 });
 
 console.log('All marine alert tests passed');
+
+// ---------- offshore headline alerts ----------
+run('offshore headlines alert once while present, again only after they drop out', () => {
+  const subs = { e1: {} };
+  const mine = { e1: ['AMZ066'] };
+  const zoneName = (z) => z;
+  const off = (headline) => ({ offshore: true, properties: {
+    id: `off:AMZ066:${headline}`, event: headline, headline, geocode: { UGC: ['AMZ066'] },
+    description: '* WHAT...Sun Night: NE winds 25 to 35 kt. Seas 8 to 12 ft.' } });
+  let t0 = Date.UTC(2026, 9, 15);
+  const a = marineAlertSends(subs, mine, [off('GALE CONDITIONS POSSIBLE SUN NIGHT')], zoneName, t0);
+  assert.equal(a.length, 1);
+  assert.equal(a[0].payload.body, 'Sun Night: NE winds 25 to 35 kt. Seas 8 to 12 ft.');
+  t0 += 5 * 3600000;
+  assert.equal(marineAlertSends(subs, mine, [off('GALE CONDITIONS POSSIBLE SUN NIGHT')], zoneName, t0).length, 0, 'still there: no repeat');
+  t0 += 5 * 3600000;
+  assert.equal(marineAlertSends(subs, mine, [off('GALE CONDITIONS POSSIBLE SUN NIGHT')], zoneName, t0).length, 0, 'kept alive while present');
+  assert.equal(marineAlertSends(subs, mine, [off('GALE WARNING')], zoneName, t0).length, 1, 'upgrade alerts');
+  t0 += 7 * 3600000;
+  marineAlertSends(subs, mine, [], zoneName, t0);
+  assert.equal(marineAlertSends(subs, mine, [off('GALE WARNING')], zoneName, t0).length, 1, 'returns after dropping out');
+});
+
+console.log('All offshore alert tests passed');

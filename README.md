@@ -32,7 +32,7 @@ chance of precipitation, wind and gusts).
 | `nowcast.js` | Tracking and extrapolation engine (no browser APIs) |
 | `radar.js` | Fetches and decodes radar frames, radar-site distance |
 | `doppler.js` | Doppler wind arrows: each radar's VAD Wind Profile (Level III NVW) from NOAA's AWS archive |
-| `storms.js` | NHC tropical storms (cone, track, wind field, watches/warnings) and per-place threat checks |
+| `storms.js` | NHC Atlantic tropical storms (cone, track, wind field, watches/warnings) and per-place threat checks |
 | `surge.js` | NHC storm surge: planning maps by category, live surge forecast, risk at a point |
 | `marine.js` | NWS Gulf and Atlantic marine zone forecasts and alerts (api.weather.gov); offshore zones read from the Offshore Waters Forecasts (OFF NT1-NT5) |
 | `compare.js` | Second opinion: NOAA GFS / GFS-Wave vs Navy NAVGEM / WAVEWATCH III, daily, with disagreements flagged |
@@ -73,3 +73,8 @@ also fetches each GFS run (`server/passage/fetch_gfs.py`, NOMADS grib filter: 10
 pressure, rain rate, visibility, GFS-Wave height/period/direction; 8-47N 100-58W, 0.25 deg,
 3-hourly to 168 h), served gzipped at `/api/passage/*` alongside the Navy run in the same layout. Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
+
+## Coverage
+
+Atlantic side only: Pacific storms (EP/CP), Pacific storm-surge regions and Pacific Ocean
+cells of the Navy and GFS grids (`server/pacific.py` mask) are excluded.

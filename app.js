@@ -790,11 +790,11 @@ async function setSurge(value) {
   surgeUpdate();
 }
 
-// Live surge options for active Atlantic / Central Pacific storms.
+// Live surge options for active Atlantic storms.
 function updateSurgeOptions() {
   const sel = $('surgeSel');
   [...sel.querySelectorAll('option[value^="live:"]')].forEach((o) => o.remove());
-  for (const s of state.storms.filter((x) => /^(AT|CP)/.test(x.bin))) {
+  for (const s of state.storms.filter((x) => /^AT/.test(x.bin))) {
     const o = document.createElement('option');
     o.value = `live:${s.bin}`;
     o.textContent = `Live forecast: ${s.title}`;

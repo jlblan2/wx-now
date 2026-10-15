@@ -1,7 +1,7 @@
 // Marine alerts: Small Craft Advisories and stronger marine hazards for each subscriber's
 // Gulf and Atlantic marine zones (the zone chosen in the app, plus the zone at each watched place that
 // lies near the water). Each NWS alert is pushed once per subscriber.
-import { zoneFor, zonesByDistance } from '../marine.js';
+import { zoneFor, zonesByDistance, marineForecast } from '../marine.js';
 
 export const MARINE_EVENTS = new Set([
   'Small Craft Advisory',
@@ -54,7 +54,43 @@ export async function fetchMarineAlerts(zones) {
   return (await resp.json()).features || [];
 }
 
-// alerts: GeoJSON features from /alerts/active. zonesBySub: { endpoint: [zone ids] }.
+// Offshore and open-ocean zones get no NWS alerts feed: their gales and storms appear only
+// as headlines ("...GALE WARNING...") in the Offshore Waters Forecasts. These turn them
+// into alert-like features, keyed by zone and headline text.
+const OFFSHORE_ZONE = /^(GMZ0[45]\d|AMZ0[4-8]\d|ANZ[89]\d\d)$/;
+const OFFSHORE_HAZARD = /gale|storm|hurricane|tropical|hazardous seas/i;
+const OFFSHORE_KEEP_MS = 6 * 3600000;   // forget a headline 6 h after it leaves the forecast
+
+export async function fetchOffshoreAlerts(zones) {
+  const out = [];
+  for (const zone of zones.filter((z) => OFFSHORE_ZONE.test(z))) {
+    let f;
+    try { f = await marineForecast(zone); } catch { continue; }
+    for (const a of f.alerts) {
+      const text = a.headline || a.event || '';
+      if (!OFFSHORE_HAZARD.test(text)) continue;
+      // The period that carries the hazard, for the notification body: the one the headline
+      // names ("...SUN NIGHT"), otherwise the period with the strongest winds.
+      const named = [...f.periods].sort((x, y) => y.name.length - x.name.length)
+        .find((x) => text.toUpperCase().includes(x.name.toUpperCase()));
+      const maxKt = (x) => Math.max(0, ...[...x.text.matchAll(/(\d+) kt/g)].map((m) => +m[1]));
+      const p = named || [...f.periods].sort((x, y) => maxKt(y) - maxKt(x))[0];
+      out.push({
+        offshore: true,
+        properties: {
+          id: `off:${zone}:${text.toUpperCase().replace(/\s+/g, ' ')}`,
+          event: a.event,
+          headline: text,
+          geocode: { UGC: [zone] },
+          description: p ? `* WHAT...${p.name}: ${[p.wind, p.seas].filter(Boolean).join('. ')}.` : '',
+        },
+      });
+    }
+  }
+  return out;
+}
+
+// alerts: GeoJSON features from /alerts/active (plus fetchOffshoreAlerts items). zonesBySub: { endpoint: [zone ids] }.
 // Returns [{ endpoint, payload }] and records what was sent on each subscriber.
 export function marineAlertSends(subs, zonesBySub, alerts, zoneName, now = Date.now()) {
   const out = [];
@@ -64,10 +100,14 @@ export function marineAlertSends(subs, zonesBySub, alerts, zoneName, now = Date.
     const mine = new Set(zonesBySub[endpoint] || []);
     for (const f of alerts) {
       const p = f.properties || {};
-      if (!MARINE_EVENTS.has(p.event) || sent[p.id]) continue;
+      if (!f.offshore && !MARINE_EVENTS.has(p.event)) continue;
+      if (sent[p.id]) {
+        if (f.offshore && (zonesBySub[endpoint] || []).some((z) => p.geocode.UGC.includes(z))) sent[p.id] = now + OFFSHORE_KEEP_MS;
+        continue;
+      }
       const hit = ((p.geocode && p.geocode.UGC) || []).filter((z) => mine.has(z));
       if (!hit.length) continue;
-      sent[p.id] = Date.parse(p.ends || p.expires) || now + 2 * 86400000;
+      sent[p.id] = f.offshore ? now + OFFSHORE_KEEP_MS : Date.parse(p.ends || p.expires) || now + 2 * 86400000;
       const untilText = localTime(p.ends || p.expires);
       out.push({
         endpoint,

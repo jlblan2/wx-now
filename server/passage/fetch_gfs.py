@@ -23,6 +23,9 @@ import urllib.request
 import eccodes as ec
 import numpy as np
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pacific import pacific_mask  # noqa: E402 - Atlantic side only: Pacific cells are blanked
+
 NOMADS = 'https://nomads.ncep.noaa.gov'
 PROD = f'{NOMADS}/pub/data/nccf/com/gfs/prod'
 OUT = os.environ.get('PASSAGE_DIR', '/var/lib/next-hour/passage')
@@ -165,6 +168,7 @@ def main():
     os.makedirs(part)
     work = tempfile.mkdtemp(prefix='passage-')
     done = []
+    pac = pacific_mask(LAT0 + np.arange(NLAT) * RES, LON0 + np.arange(NLON) * RES)
     try:
         for h in STEPS:
             fields = {}
@@ -178,6 +182,8 @@ def main():
                 time.sleep(PAUSE)
             if not fields:
                 continue
+            for g in fields.values():
+                g[pac] = np.nan
             data = np.full((len(VARS), NLAT, NLON), MISSING, np.int16)
             for vi, (name, *_rest, scale) in enumerate(VARS):
                 g = fields.get(name)

@@ -14,7 +14,7 @@ import { radarCoverage, runRadar, blend, summarize, precipNoun, cap } from '../f
 import { decide, newState } from './decide.js';
 import { activeStorms } from '../storms.js';
 import { stormAlerts } from './stormalerts.js';
-import { marineZones, marineAlertSends, fetchMarineAlerts } from './marinealerts.js';
+import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
 import { passageMeta, passageStep } from './passage.js';
@@ -177,7 +177,7 @@ async function marineLoop() {
     const zonesBySub = {};
     for (const [endpoint, sub] of Object.entries(subs)) zonesBySub[endpoint] = await marineZones(sub, watchList);
     const all = [...new Set(Object.values(zonesBySub).flat())];
-    const alerts = all.length ? await fetchMarineAlerts(all) : [];
+    const alerts = all.length ? [...await fetchMarineAlerts(all), ...await fetchOffshoreAlerts(all)] : [];
     for (const { endpoint, payload } of marineAlertSends(subs, zonesBySub, alerts, zoneName)) {
       console.log(`Marine alert: ${payload.title}: ${payload.body}`);
       await push(endpoint, payload);

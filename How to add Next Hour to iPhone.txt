@@ -62,6 +62,11 @@ Storm, Hurricane Force Wind or Hazardous Seas watch/warning, or a Special Marine
 Warning, for the zone picked in the marine forecast card or the marine zone at your saved
 places and last location (when they are near the water). Each one alerts once, and an
 upgrade (say, Small Craft Advisory to Gale Warning) alerts again.
+Offshore and open-ocean zones (Gulf offshore, Caribbean, Bahamas and SW Atlantic,
+Mid-Atlantic and New England offshore) alert on the gale, storm, hurricane-force,
+tropical and hazardous-seas headlines in the NWS Offshore Waters Forecasts, e.g.
+"Gale Conditions Possible Sun Night". Each headline alerts once while it stays in the
+forecast, and again if it changes or comes back.
 
 
 PART 4 - SAVE PLACES (optional)
@@ -78,7 +83,7 @@ You can save up to 10 places.
 
 USING THE APP
 -------------
-- When there's an active hurricane or tropical storm, a "Tropical storms" card appears
+- When there's an active Atlantic hurricane or tropical storm, a "Tropical storms" card appears
   under the forecast. For each storm it shows strength, movement, how far it is from
   you, its closest forecast approach, and whether you are in the forecast cone or near
   a coastal watch or warning. "Show on map" zooms to the storm: cone (white), forecast
@@ -179,3 +184,10 @@ Setting up on a new or second iPhone:
 
 Note: Next Hour is not an official forecast. For warnings, check the National Weather
 Service.
+
+COVERAGE
+--------
+Next Hour covers the Atlantic side: the US East Coast, the Gulf of America, the
+Bahamas, the Caribbean and Bermuda. Pacific storms, Pacific storm-surge maps and
+Pacific Ocean wind, wave and pressure data are not included. The rain forecast,
+hourly and 7-day forecasts still work anywhere in the US.

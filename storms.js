@@ -1,7 +1,8 @@
 // Tropical storms from the National Hurricane Center, via NOAA's NHC_tropical_weather map
 // service (ArcGIS REST, GeoJSON). Shared by the app (map + storm card) and the alert server.
 // The service has fixed "bins" per basin (AT1-5, EP1-5, CP1-5), each with forecast points,
-// track, cone, coastal watches/warnings, past track and wind radii layers.
+// track, cone, coastal watches/warnings, past track and wind radii layers. Next Hour covers
+// the Atlantic side only, so just the Atlantic bins (AT1-5) are read.
 
 const SERVICE = 'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer';
 const CACHE_MS = 10 * 60000;
@@ -34,7 +35,7 @@ async function loadLayerIds() {
   };
   const ids = {};
   for (const l of j.layers || []) {
-    const m = l.name.match(/^((?:AT|EP|CP)\d) (.+)$/);
+    const m = l.name.match(/^(AT\d) (.+)$/);
     if (!m) continue;
     for (const [key, name] of Object.entries(want)) {
       if (m[2] === name) (ids[m[1]] = ids[m[1]] || {})[key] = l.id;

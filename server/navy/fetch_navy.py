@@ -25,6 +25,9 @@ import urllib.request
 
 import eccodes as ec
 import numpy as np
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pacific import pacific_mask  # noqa: E402 - Atlantic side only: Pacific cells are blanked
 from PIL import Image
 
 NOMADS = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/fnmoc/prod'
@@ -213,6 +216,7 @@ def main():
         return 0
     log('processing', cycle)
     rows, cols = region_index()
+    pac = pacific_mask(LAT0 + np.arange(len(rows)) * RES, LON0 + np.arange(len(cols)) * RES)
     shape = (len(VARS), len(STEPS), len(rows), len(cols))
     data = np.full(shape, MISSING, np.int16)
     names = list(VARS)
@@ -232,6 +236,8 @@ def main():
                     continue
                 grids.update(extract(path, source, rows, cols))
                 os.remove(path)
+            for g in grids.values():
+                g[pac] = np.nan
             for vi, name in enumerate(names):
                 g = grids.get(name)
                 if g is None:
