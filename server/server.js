@@ -5,6 +5,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import webpush from 'web-push';
 import { decodePng } from './png.js';
 import { setPngDecoder } from '../radar.js';
@@ -330,8 +331,13 @@ const server = http.createServer(async (req, res) => {
     let buf = null;
     try { buf = passageStep(PASSAGE_DIR, NAVY_DIR, step[1], step[2], step[3]); } catch { /* fall through to 404 */ }
     if (!buf) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'public, max-age=21600' });
-    return res.end(buf);
+    // Caddy only compresses text types, so gzip these grids here (about 4x smaller).
+    const gz = /gzip/.test(req.headers['accept-encoding'] || '');
+    res.writeHead(200, {
+      'Content-Type': 'application/octet-stream', 'Cache-Control': 'public, max-age=21600',
+      Vary: 'Accept-Encoding', ...(gz ? { 'Content-Encoding': 'gzip' } : {}),
+    });
+    return res.end(gz ? zlib.gzipSync(buf, { level: 6 }) : buf);
   }
   const route = routes[`${req.method} ${url.pathname}`];
   if (!route) { res.writeHead(404); return res.end(); }
