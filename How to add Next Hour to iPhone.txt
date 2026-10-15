@@ -128,9 +128,10 @@ USING THE APP
 - "Navy waves" (under the map) shows the Navy's wave height forecast in colour, with
   white arrows for the direction the waves are travelling. Drag its slider to step
   through the next 5 days.
-- "Sailing weather" is a sailing weather chart for the US East Coast and the
-  Gulf of America. Pick a region (Gulf, Florida & Bahamas, Southeast, Mid-Atlantic,
-  New England or the whole coast) and a chart:
+- "Sailing weather" is a sailing weather chart for the US East Coast, the Gulf
+  of America, the Bahamas and the Caribbean. Pick a region (Gulf, Florida, Bahamas,
+  Caribbean, Western or Eastern Caribbean, Southeast, Mid-Atlantic, New England or the
+  whole area) and a chart:
     Wind - colours by speed with standard wind barbs in knots (each full feather is 10
            kt, half feather 5 kt, triangle 50 kt; the barb points where the wind comes from)
     Waves - wave height with arrows showing which way the waves are travelling

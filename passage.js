@@ -1,12 +1,16 @@
-// Sailing weather: Forecast maps for the US East Coast and the Gulf
-// of America. Wind (speed colours + barbs in knots), waves (height + direction), pressure
+// Sailing weather: Forecast maps for the US East Coast, the Gulf
+// of America, the Bahamas and the Caribbean. Wind (speed colours + barbs in knots), waves (height + direction), pressure
 // (isobars + rain) and visibility, 3-hourly over 7 days, from NOAA GFS / GFS-Wave or the
 // Navy's NAVGEM / WAVEWATCH III, served as compact grids by the alert server.
 
 const REGIONS = {
-  coast: { name: 'Whole coast', bounds: [[17, -100], [47, -60]] },
+  coast: { name: 'Whole area', bounds: [[8, -100], [47, -58]] },
   gulf: { name: 'Gulf of America', bounds: [[17.5, -98], [31, -80]] },
-  florida: { name: 'Florida & Bahamas', bounds: [[22, -84.5], [31, -73.5]] },
+  florida: { name: 'Florida', bounds: [[24, -88], [31.5, -79]] },
+  bahamas: { name: 'Bahamas', bounds: [[20.5, -80.8], [27.5, -72]] },
+  caribbean: { name: 'Caribbean', bounds: [[8.5, -88], [23.5, -59]] },
+  westcarib: { name: 'Western Caribbean', bounds: [[9, -88.5], [23, -74]] },
+  eastcarib: { name: 'Eastern Caribbean', bounds: [[10, -75.5], [20.5, -58.5]] },
   southeast: { name: 'Southeast', bounds: [[28, -82], [36.5, -72]] },
   midatl: { name: 'Mid-Atlantic', bounds: [[34, -78.5], [42, -67]] },
   newengland: { name: 'New England', bounds: [[39, -75], [46.5, -63]] },
@@ -304,7 +308,7 @@ function showPoint(ll) {
   if (!Number.isNaN(vis)) parts.push(`visibility ${vis * NM >= 10 ? '10+' : (vis * NM).toFixed(1)} nm`);
   $('pwInfo').textContent = parts.length
     ? `${ll.lat.toFixed(2)}°N ${Math.abs(ll.lng).toFixed(2)}°W, ${$('pwLabel').textContent} (${m.model === 'navy' ? 'Navy' : 'NOAA'}): ${parts.join(' · ')}`
-    : 'Outside the forecast area.';
+    : 'Outside the forecast area (8–47°N, 100–58°W).';
 }
 
 function stopPlay() {

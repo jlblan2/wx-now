@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""NOAA GFS + GFS-Wave for the Sailing weather maps (US East Coast and Gulf of America).
+"""NOAA GFS + GFS-Wave for the Sailing weather maps (US East Coast, Gulf of America,
+Bahamas and Caribbean).
 
-Uses the NOMADS grib filter to download only the fields and area needed (17-47N,
-100-60W, 0.25 degree), 3-hourly to 168 h, and writes for the alert server:
+Uses the NOMADS grib filter to download only the fields and area needed (8-47N,
+100-58W, 0.25 degree), 3-hourly to 168 h, and writes for the alert server:
   OUT/<cycle>/s_<hhh>.bin  int16 [var][row][col], south row first
   OUT/<cycle>/meta.json    grid, steps, variables and scales
   OUT/latest.json          the newest complete cycle
@@ -26,7 +27,7 @@ NOMADS = 'https://nomads.ncep.noaa.gov'
 PROD = f'{NOMADS}/pub/data/nccf/com/gfs/prod'
 OUT = os.environ.get('PASSAGE_DIR', '/var/lib/next-hour/passage')
 UA = {'User-Agent': 'NextHour alert server (github.com/jlblan2/next-hour)'}
-LAT0, LAT1, LON0, LON1 = 17.0, 47.0, -100.0, -60.0
+LAT0, LAT1, LON0, LON1 = 8.0, 47.0, -100.0, -58.0
 RES = 0.25
 STEPS = [int(x) for x in os.environ['PASSAGE_STEPS'].split(',')] if os.environ.get('PASSAGE_STEPS') else list(range(0, 169, 3))
 KEEP = 2
@@ -148,12 +149,13 @@ def read(path, source):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
+    force = os.environ.get('PASSAGE_FORCE') == '1'   # rebuild even if this run is done
     cycle = latest_complete_cycle()
     if not cycle:
         log('no complete cycle found')
         return 0
     latest = os.path.join(OUT, 'latest.json')
-    if os.path.exists(latest) and json.load(open(latest)).get('cycle') == cycle:
+    if not force and os.path.exists(latest) and json.load(open(latest)).get('cycle') == cycle:
         log('already have', cycle)
         return 0
     log('processing', cycle)
