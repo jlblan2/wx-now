@@ -2,6 +2,7 @@ import { advectField, velocity } from './nowcast.js';
 import { toLatLon, toPixel, velocityImage } from './radar.js';
 import { NEXRAD_SITES } from './data.js';
 import { dopplerWinds } from './doppler.js';
+import { activeStorms, category, threatTo, threatText, WARNING_NAMES } from './storms.js';
 import { fetchModel, describe } from './model.js';
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
@@ -30,6 +31,8 @@ const state = {
   playing: null,
   arrows: store.get('arrows', true),
   velocity: false,
+  stormMap: store.get('stormMap', true),
+  storms: [],
 };
 
 // ---------- formatting ----------
@@ -85,6 +88,7 @@ async function refresh() {
   $('refreshBtn').classList.add('spin');
   setStatus('Updating…');
   try {
+    loadStorms();
     const { site, quality } = radarCoverage(loc);
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
     let radar = null, radarErr = null;
@@ -178,6 +182,7 @@ function render() {
 
   drawChart(r.series, r.noun);
   renderOutlook(r.model);
+  if (state.storms.length) renderStorms();
   renderMap(r);
 }
 
@@ -291,7 +296,7 @@ function drawChart(series) {
 
 // ---------- map ----------
 
-let map, overlay, userMarker, trackLine, arrowLayer, dopplerLayer, velLayer;
+let map, overlay, userMarker, trackLine, arrowLayer, dopplerLayer, velLayer, stormLayer;
 
 const ARROW_STEP_KM = 36;      // spacing of the motion arrows
 const ARROW_MINUTES = 15;      // arrow length = distance moved in this many minutes
@@ -541,6 +546,106 @@ function togglePlay() {
   }, 600);
 }
 
+// ---------- tropical storms ----------
+
+// Saffir-Simpson colours by category (TD, TS, 1-5), NHC watch/warning colours, wind radii.
+const CAT_COLORS = { TD: '#5ebaff', TS: '#00faf4', 1: '#ffffcc', 2: '#ffe775', 3: '#ffc140', 4: '#ff8f20', 5: '#ff6060' };
+const WARN_COLORS = { HWR: '#ff2020', HWA: '#ff8fd0', TWR: '#3d7dff', TWA: '#ffe600' };
+const WIND_COLORS = { 34: '#ffe066', 50: '#ffa040', 64: '#ff4040' };
+const KT_KMH = 1.852;
+// Storm winds the way NHC states them: rounded to the nearest 5 mph (or km/h).
+const fmtWind = (kt) => (metric() ? `${Math.round(kt * KT_KMH / 5) * 5} km/h` : `${Math.round(kt * 1.15078 / 5) * 5} mph`);
+const catColor = (kt) => CAT_COLORS[category(kt).short];
+const catBadge = (kt) => { const c = category(kt).short; return c === 'TD' || c === 'TS' ? c : `Cat ${c}`; };
+const fmtWhen = (ms) => new Date(ms).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function advisoryUrl(bin) {
+  return bin.startsWith('CP') ? `https://www.nhc.noaa.gov/text/HFOTCP${bin}.shtml` : `https://www.nhc.noaa.gov/text/MIATCP${bin}.shtml`;
+}
+
+async function loadStorms() {
+  try {
+    state.storms = await activeStorms();
+  } catch {
+    return;   // keep what we had; try again on the next refresh
+  }
+  renderStorms();
+}
+
+function renderStorms() {
+  const storms = state.storms;
+  $('stormCard').hidden = !storms.length;
+  drawStormLayers();
+  if (!storms.length) return;
+  const loc = state.result ? state.result.loc : state.picked || state.gps;
+  const where = state.picked ? 'this spot' : 'you';
+  $('stormList').innerHTML = storms.map((s, i) => {
+    const lines = [];
+    const move = s.speedMph ? `moving ${compass(s.headingTo)} at ${fmtSpeed(s.speedMph / 0.621371)}` : 'nearly stationary';
+    lines.push(`<p>${fmtWind(s.kt)} winds${s.pressure ? ` · ${s.pressure} mb` : ''} · ${move}</p>`);
+    if (loc) {
+      const t = threatTo(s, loc);
+      lines.push(`<p>${fmtDist(t.km)} ${compass(t.bearingFrom)} of ${where}. Closest forecast approach: ${fmtDist(t.closest.km)}, ${t.closest.time - Date.now() < 3600000 ? 'now' : fmtWhen(t.closest.time)}.</p>`);
+      const tt = threatText(s, t);
+      lines.push(`<p class="threat${tt ? '' : ' none'}">${tt || `No cone, watch or warning for ${where}.`}</p>`);
+    }
+    const peak = s.points.reduce((a, b) => (b.kt > a.kt ? b : a), s.points[0]);
+    if (peak.kt > s.kt) lines.push(`<p>Forecast to strengthen to ${category(peak.kt).name}, ${fmtWind(peak.kt)}, by ${fmtWhen(peak.time)}.</p>`);
+    if (s.warnings.length) lines.push(`<p class="meta">Coastal alerts: ${[...new Set(s.warnings.map((w) => WARNING_NAMES[w.code] || w.code))].join(', ')}</p>`);
+    lines.push(`<p class="meta">NHC advisory ${esc(s.advisory)}, ${esc(s.advisoryTime)} · <a href="${advisoryUrl(s.bin)}" target="_blank" rel="noopener">Read advisory</a></p>`);
+    lines.push(`<div class="row"><button class="btn ghost" data-storm="${i}">Show on map</button></div>`);
+    return `<div class="storm"><div class="storm-head"><span class="cat" style="background:${catColor(s.kt)}">${catBadge(s.kt)}</span>
+      <strong>${esc(s.title)}</strong></div>${lines.join('')}</div>`;
+  }).join('');
+}
+
+function drawStormLayers() {
+  if (stormLayer) { stormLayer.remove(); stormLayer = null; }
+  if (!state.stormMap || !state.storms.length || !map) return;
+  const shape = (g, style) => L.geoJSON(g, { interactive: false, style });
+  const layers = [];
+  for (const s of state.storms) {
+    for (const g of s.cone) layers.push(shape(g, { color: '#ffffff', weight: 1.5, dashArray: '5 5', fillColor: '#ffffff', fillOpacity: 0.12 }));
+    for (const w of [...s.wind].sort((a, b) => a.kt - b.kt)) {
+      const c = WIND_COLORS[w.kt] || WIND_COLORS[34];
+      layers.push(shape(w.geometry, { color: c, weight: 1, fillColor: c, fillOpacity: 0.22 }));
+    }
+    for (const g of s.pastTrack) layers.push(shape(g, { color: '#cfd8e3', weight: 2, opacity: 0.8 }));
+    for (const g of s.track) layers.push(shape(g, { color: '#ffffff', weight: 2, dashArray: '6 6' }));
+    for (const w of s.warnings) {
+      layers.push(L.geoJSON(w.geometry, { style: { color: WARN_COLORS[w.code] || '#ffffff', weight: 6, opacity: 0.95 } })
+        .bindTooltip(`${esc(s.name)}: ${WARNING_NAMES[w.code] || w.code}`));
+    }
+    for (const p of s.points.slice(1)) {
+      layers.push(L.circleMarker([p.lat, p.lon], { radius: 6, color: '#111111', weight: 1, fillColor: catColor(p.kt), fillOpacity: 1 })
+        .bindTooltip(`${esc(s.name)} · ${fmtWhen(p.time)} · ${category(p.kt).name} · ${fmtWind(p.kt)}`));
+    }
+    layers.push(L.marker([s.lat, s.lon], {
+      icon: L.divIcon({
+        className: 'storm-label', iconSize: [26, 26], iconAnchor: [13, 13],
+        html: `<div style="background:${catColor(s.kt)}">${category(s.kt).short}</div><span>${esc(s.name)}</span>`,
+      }),
+    }).bindTooltip(`${esc(s.title)} · ${fmtWind(s.kt)}`));
+  }
+  stormLayer = L.layerGroup(layers).addTo(map);
+}
+
+function showStormOnMap(i) {
+  const s = state.storms[i];
+  if (!s) return;
+  if (!state.stormMap) {
+    state.stormMap = true;
+    store.set('stormMap', true);
+    $('stormMap').checked = true;
+    drawStormLayers();
+  }
+  const shapes = [...s.cone, ...s.track, ...s.pastTrack].map((g) => L.geoJSON(g));
+  const b = shapes.length ? L.featureGroup(shapes).getBounds() : L.latLngBounds([[s.lat, s.lon], [s.lat, s.lon]]);
+  map.fitBounds(b.pad(0.1));
+  $('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 // ---------- alerts ----------
 
 function maybeAlert(summary, noun) {
@@ -594,6 +699,16 @@ function bindUi() {
   });
   $('frameSlider').addEventListener('input', (e) => { stopPlay(); showFrame(+e.target.value); });
   $('playBtn').addEventListener('click', togglePlay);
+  $('stormMap').checked = state.stormMap;
+  $('stormMap').addEventListener('change', (e) => {
+    state.stormMap = e.target.checked;
+    store.set('stormMap', state.stormMap);
+    drawStormLayers();
+  });
+  $('stormList').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-storm]');
+    if (b) showStormOnMap(+b.dataset.storm);
+  });
   $('velBtn').addEventListener('click', () => {
     state.velocity = !state.velocity;
     drawVelocity();

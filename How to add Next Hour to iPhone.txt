@@ -52,6 +52,10 @@ You will then get an alert about 15 minutes before rain:
   - at the last place where you opened the app.
 You get one alert per rain event per place, not repeated reminders.
 
+With alerts on you also get hurricane alerts for the same places: when a place comes
+inside a storm's forecast cone, when a watch or warning covers the nearby coast (and
+again if it is upgraded), and when tropical-storm- or hurricane-force winds arrive.
+
 
 PART 4 - SAVE PLACES (optional)
 -------------------------------
@@ -67,6 +71,14 @@ You can save up to 10 places.
 
 USING THE APP
 -------------
+- When there's an active hurricane or tropical storm, a "Tropical storms" card appears
+  under the forecast. For each storm it shows strength, movement, how far it is from
+  you, its closest forecast approach, and whether you are in the forecast cone or near
+  a coastal watch or warning. "Show on map" zooms to the storm: cone (white), forecast
+  track with points coloured by strength, past track, wind field (yellow = tropical-
+  storm force, red = hurricane force) and coastal watches/warnings (yellow = tropical
+  storm watch, blue = tropical storm warning, pink = hurricane watch, red = hurricane
+  warning). Untick "on map" in the card to hide the storm drawing.
 - The headline gives the next hour in plain words, for example
   "Light rain starting in 12 min, stopping 20 min later".
 - The bar chart shows rain minute by minute. Faded bars mean the forecast is less

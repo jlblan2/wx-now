@@ -167,3 +167,21 @@ main {
 footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 8px 12px; line-height: 1.5; }
 
 .leaflet-container { font: inherit; }
+
+/* tropical storms */
+.storms h2 { display: flex; align-items: center; justify-content: space-between; }
+.storm-toggle { text-transform: none; letter-spacing: 0; font-weight: 400; display: flex; gap: 6px; align-items: center; }
+.storm { border-top: 1px solid var(--border); padding: 10px 0; }
+.storm:first-child { border-top: none; padding-top: 0; }
+.storm-head { display: flex; align-items: center; gap: 8px; }
+.storm-head strong { font-size: 17px; }
+.cat { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px; color: #111; }
+.storm p { margin: 4px 0; font-size: 14px; }
+.storm .threat { color: #ff8a65; font-weight: 600; }
+.storm .threat.none { color: var(--muted); font-weight: 400; }
+.storm .meta { color: var(--muted); font-size: 12px; }
+.storm .meta a { color: var(--accent); }
+.storm .row { margin: 6px 0 0; }
+.storm-label { background: none; border: none; }
+.storm-label div { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; color: #111; font: 700 12px/22px -apple-system, system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
+.storm-label span { position: absolute; left: 30px; top: 3px; white-space: nowrap; color: #fff; font: 600 12px -apple-system, system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000; }

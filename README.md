@@ -32,6 +32,7 @@ chance of precipitation, wind and gusts).
 | `nowcast.js` | Tracking and extrapolation engine (no browser APIs) |
 | `radar.js` | Fetches and decodes radar frames, radar-site distance |
 | `doppler.js` | Doppler wind arrows: each radar's VAD Wind Profile (Level III NVW) from NOAA's AWS archive |
+| `storms.js` | NHC tropical storms (cone, track, wind field, watches/warnings) and per-place threat checks |
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |

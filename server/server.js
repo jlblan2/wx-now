@@ -11,6 +11,8 @@ import { setPngDecoder } from '../radar.js';
 import { fetchModel } from '../model.js';
 import { radarCoverage, runRadar, blend, summarize, precipNoun, cap } from '../forecast.js';
 import { decide, newState } from './decide.js';
+import { activeStorms } from '../storms.js';
+import { stormAlerts } from './stormalerts.js';
 
 const PORT = +(process.env.PORT || 8787);
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
@@ -138,6 +140,27 @@ async function check() {
   status.watching = cache.size;
 }
 
+// Tropical storms: NHC issues advisories every 3-6 hours, so every 15 minutes is plenty.
+const STORM_CHECK_MS = 15 * 60000;
+
+async function stormLoop() {
+  try {
+    const storms = await activeStorms();
+    const sends = stormAlerts(subs, storms, watchList);
+    for (const { endpoint, payload } of sends) {
+      console.log(`Storm alert: ${payload.title}: ${payload.body}`);
+      await push(endpoint, payload);
+    }
+    saveSubs();
+    status.storms = storms.map((s) => `${s.title} (${s.bin})`);
+    status.lastStormCheck = new Date().toISOString();
+  } catch (e) {
+    status.lastStormError = e.message;
+    console.error('Storm check failed:', e.message);
+  }
+  setTimeout(stormLoop, STORM_CHECK_MS);
+}
+
 async function loop() {
   try {
     await check();
@@ -250,4 +273,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`Next Hour alert server on 127.0.0.1:${PORT}, ${Object.keys(subs).length} subscriber(s)`);
   loop();
+  stormLoop();
 });
