@@ -131,3 +131,26 @@ run('offshore headlines alert once while present, again only after they drop out
 });
 
 console.log('All offshore alert tests passed');
+
+// ---------- tropical outlook alerts ----------
+import { outlookEvents, outlookSends } from './outlookalerts.js';
+
+run('outlook: quiet first run, new areas, rising chances, no repeats', () => {
+  const area = (lat, lon, risk7, prob7, risk2 = 'Low', prob2 = '0%') => ({ lat, lon, risk7, prob7, risk2, prob2 });
+  let r = outlookEvents(null, [area(15, -40, 'Low', '20%')]);
+  assert.equal(r.events.length, 0, 'first run only records');
+  r = outlookEvents(r.next, [area(15.5, -41, 'Low', '30%')]);
+  assert.equal(r.events.length, 0, 'same area moved, same risk level');
+  r = outlookEvents(r.next, [area(16, -43, 'Medium', '50%'), area(25, -88, 'Low', '10%')]);
+  assert.deepEqual(r.events.map((e) => e.kind).sort(), ['new', 'up']);
+  r = outlookEvents(r.next, [area(16.5, -45, 'Medium', '60%', 'High', '70%'), area(25, -88, 'Low', '10%')]);
+  assert.equal(r.events.length, 1, '2-day reaching high counts');
+  const sends = outlookSends({ e1: { places: [{ name: 'Home', lat: 27.9, lon: -82.5 }] } }, r.events,
+    (s) => s.places.map((p) => ({ key: 'p:' + p.name, ...p })));
+  assert.equal(sends.length, 1);
+  assert.match(sends[0].payload.title, /chances up to 60% in 7 days/);
+  assert.match(sends[0].payload.body, /mi (E|ESE|SE) of Home\.$/);
+  assert.equal(outlookSends({ e1: { outlookOn: false, places: [] } }, r.events, () => []).length, 0, 'opt-out respected');
+});
+
+console.log('All outlook alert tests passed');

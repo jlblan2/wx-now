@@ -14,6 +14,8 @@ import { radarCoverage, runRadar, blend, summarize, precipNoun, cap } from '../f
 import { decide, newState } from './decide.js';
 import { activeStorms } from '../storms.js';
 import { stormAlerts } from './stormalerts.js';
+import { tropicalOutlook } from '../outlook.js';
+import { outlookAreas, outlookEvents, outlookSends } from './outlookalerts.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
@@ -35,6 +37,7 @@ setPngDecoder(async (bytes) => decodePng(bytes).data);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const SUBS_FILE = path.join(DATA_DIR, 'subscriptions.json');
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
+const OUTLOOK_FILE = path.join(DATA_DIR, 'outlook.json');   // last outlook areas seen
 
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
@@ -160,6 +163,18 @@ async function stormLoop() {
     }
     saveSubs();
     status.storms = storms.map((s) => `${s.title} (${s.bin})`);
+    // Tropical outlook: new areas and rising chances.
+    const o = await tropicalOutlook();
+    if (o.areasOk) {
+      const saved = readJson(OUTLOOK_FILE, null);
+      const { events, next } = outlookEvents(saved && saved.areas, outlookAreas(o.areas));
+      writeJson(OUTLOOK_FILE, { areas: next, at: new Date().toISOString() });
+      for (const { endpoint, payload } of outlookSends(subs, events, watchList)) {
+        console.log(`Outlook alert: ${payload.title}: ${payload.body}`);
+        await push(endpoint, payload);
+      }
+      status.outlookAreas = next.length;
+    }
     status.lastStormCheck = new Date().toISOString();
   } catch (e) {
     status.lastStormError = e.message;
@@ -258,6 +273,7 @@ const routes = {
       places: b.places ? cleanPlaces(b.places) : prev.places || [],
       last: validPoint(b.last) ? { lat: +b.last.lat, lon: +b.last.lon, at: Date.now() } : prev.last || null,
       marine: b.marine ? cleanMarine(b.marine) : prev.marine || { on: true, zone: 'auto' },
+      outlookOn: b.outlook === undefined ? prev.outlookOn !== false : b.outlook !== false,
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -279,6 +295,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.places = cleanPlaces(b.places);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, on } — tropical outlook alerts on/off.
+  'POST /api/outlook': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.outlookOn = b.on !== false;
     saveSubs();
     return { ok: true };
   },

@@ -12,7 +12,10 @@ async function getJson(url) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 20000);
   try {
-    const resp = await fetch(url, { signal: ctl.signal, headers: { Accept: 'application/geo+json, application/json' } });
+    const headers = { Accept: 'application/geo+json, application/json' };
+    // NWS asks servers to identify themselves; browsers send their own User-Agent.
+    if (typeof window === 'undefined') headers['User-Agent'] = 'NextHour alert server (github.com/jlblan2/next-hour)';
+    const resp = await fetch(url, { signal: ctl.signal, headers });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     return await resp.json();
   } finally {
@@ -66,12 +69,13 @@ export async function tropicalOutlook() {
       .catch(() => null),
     layerIds(),
   ]);
-  const [now2, now7, areas, motion] = await Promise.all([ids.now2, ids.now7, ids.areas, ids.motion].map((id) => query(id).catch(() => [])));
-  const atl = (fs) => fs.filter((f) => (f.properties.basin || '') === BASIN);
+  const [now2, now7, areas, motion] = await Promise.all([ids.now2, ids.now7, ids.areas, ids.motion].map((id) => query(id).catch(() => null)));
+  const atl = (fs) => (fs || []).filter((f) => (f.properties.basin || '') === BASIN);
   const data = {
     text: text ? parseText(text.productText || '') : null,
     textTime: text ? text.issuanceTime : null,
     areas: atl(areas), motion: atl(motion), points: [...atl(now2), ...atl(now7)],
+    areasOk: areas !== null && ids.areas !== undefined,   // false when the map service failed
   };
   cached = { at: Date.now(), data };
   return data;

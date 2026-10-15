@@ -68,6 +68,13 @@ tropical and hazardous-seas headlines in the NWS Offshore Waters Forecasts, e.g.
 "Gale Conditions Possible Sun Night". Each headline alerts once while it stays in the
 forecast, and again if it changes or comes back.
 
+Tropical outlook alerts: with "Include tropical outlook alerts" ticked in Settings
+(on by default) you get an alert when NHC starts watching a new Atlantic area, and
+when an area's chance of becoming a tropical cyclone goes up (its 7-day chance rises
+to medium or high, or its 2-day chance becomes high). Each alert says how far the
+area is from your nearest saved place, e.g. "About 3,550 mi E of Home". Tapping it
+opens the Hurricanes tab.
+
 
 PART 4 - SAVE PLACES (optional)
 -------------------------------

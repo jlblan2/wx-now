@@ -64,7 +64,7 @@ async function enable() {
     if (sub && store.get('pushKey', '') !== key) { await sub.unsubscribe(); sub = null; }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
     const here = currentSpot();
-    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs() });
+    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true) });
     store.set('pushKey', key);
     store.set('pushOn', true);
     lastSent = here ? { ...here, at: Date.now() } : null;
@@ -111,6 +111,16 @@ export async function syncMarine() {
     if (sub) await api('/api/marine', { endpoint: sub.endpoint, ...marinePrefs() });
   } catch (e) {
     setMsg(`Could not update marine alerts on the alert server: ${e.message}`, true);
+  }
+}
+
+async function syncOutlook() {
+  if (!pushEnabled()) return;
+  try {
+    const sub = await subscription();
+    if (sub) await api('/api/outlook', { endpoint: sub.endpoint, on: store.get('pushOutlook', true) });
+  } catch (e) {
+    setMsg(`Could not update tropical outlook alerts on the alert server: ${e.message}`, true);
   }
 }
 
@@ -178,6 +188,8 @@ export function initPush(getSpot) {
     const b = e.target.closest('button[data-name]');
     if (b) removePlace(decodeURIComponent(b.dataset.name));
   });
+  $('pushOutlook').checked = store.get('pushOutlook', true);
+  $('pushOutlook').addEventListener('change', (e) => { store.set('pushOutlook', e.target.checked); syncOutlook(); });
   $('pushMarine').checked = store.get('pushMarine', true);
   $('pushMarine').addEventListener('change', (e) => { store.set('pushMarine', e.target.checked); syncMarine(); });
   $('alertServer').value = store.get('alertServer', '');
