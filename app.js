@@ -11,7 +11,7 @@ import {
 } from './forecast.js';
 import { initPush, reportLocation, pushEnabled, syncMarine, alertServerUrl } from './push.js';
 import { secondOpinion } from './compare.js';
-import { initPassage, passageUnitsChanged } from './passage.js';
+import { initPassage, passageUnitsChanged, passageShown } from './passage.js';
 
 const REFRESH_MS = 5 * 60000;
 
@@ -382,9 +382,9 @@ function drawDoppler(radar) {
     const lines = arrowAt(g, p.x, p.y, w.u * perMin, -w.v * perMin);
     const tip = `${w.id} Doppler wind, 10,000–20,000 ft: toward ${compass(Math.atan2(w.u, w.v) * 180 / Math.PI)} at ${fmtSpeed(Math.hypot(w.u, w.v) * KMH_PER_MS)}`;
     layers.push(
-      L.polyline(lines, { color: '#0a1220', weight: 5, opacity: 0.5, interactive: false }),
-      L.polyline(lines, { color: '#3ee6c1', weight: 2.5, opacity: 1 }).bindTooltip(tip),
-      L.circleMarker([w.lat, w.lon], { radius: 4, color: '#0a1220', weight: 1, fillColor: '#3ee6c1', fillOpacity: 1 }).bindTooltip(tip),
+      L.polyline(lines, { pane: 'tabLocal', color: '#0a1220', weight: 5, opacity: 0.5, interactive: false }),
+      L.polyline(lines, { pane: 'tabLocal', color: '#3ee6c1', weight: 2.5, opacity: 1 }).bindTooltip(tip),
+      L.circleMarker([w.lat, w.lon], { pane: 'tabLocal', radius: 4, color: '#0a1220', weight: 1, fillColor: '#3ee6c1', fillOpacity: 1 }).bindTooltip(tip),
     );
   }
   dopplerLayer = L.layerGroup(layers).addTo(map);
@@ -408,8 +408,8 @@ function drawArrows(radar) {
   const lines = motionArrows(radar);
   if (!lines.length) return;
   arrowLayer = L.layerGroup([
-    L.polyline(lines, { color: '#0a1220', weight: 3.5, opacity: 0.45, interactive: false }),
-    L.polyline(lines, { color: '#f4f8ff', weight: 1.6, opacity: 0.95, interactive: false }),
+    L.polyline(lines, { pane: 'tabLocal', color: '#0a1220', weight: 3.5, opacity: 0.45, interactive: false }),
+    L.polyline(lines, { pane: 'tabLocal', color: '#f4f8ff', weight: 1.6, opacity: 0.95, interactive: false }),
   ]).addTo(map);
 }
 
@@ -447,7 +447,10 @@ function frameImage(rate, w, h) {
 
 function initMap() {
   map = L.map('map', { zoomControl: false, attributionControl: true }).setView([30, -90], 7);
-  map.createPane('surge').style.zIndex = 350;   // under the radar layer
+  map.createPane('surge').style.zIndex = 350;   // Hurricanes tab: storm surge, under the storm drawing
+  map.createPane('tabSeas').style.zIndex = 350;
+  map.createPane('tabLocal').style.zIndex = 400;
+  map.createPane('tabStorms').style.zIndex = 420;
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 16, attribution: 'Basemap &copy; Esri',
   }).addTo(map);
@@ -471,7 +474,7 @@ function renderMap(r) {
     userMarker.setLatLng([loc.lat, loc.lon]);
   }
   if (!state.mapCentred || state.mapCentredOn !== `${loc.lat},${loc.lon}`) {
-    if (!state.mapCentred) map.setView([loc.lat, loc.lon], 8);
+    if (!state.mapCentred && state.tab === 'local') map.setView([loc.lat, loc.lon], 8);
     state.mapCentred = true;
     state.mapCentredOn = `${loc.lat},${loc.lon}`;
   }
@@ -492,7 +495,7 @@ function renderMap(r) {
       const p = toLatLon(grid, pf.traj.xs[t], pf.traj.ys[t]);
       pts.push([p.lat, p.lon]);
     }
-    trackLine = L.polyline(pts, { color: '#ff9f1c', weight: 2, dashArray: '4 6', opacity: 0.9 }).addTo(map);
+    trackLine = L.polyline(pts, { pane: 'tabLocal', color: '#ff9f1c', weight: 2, dashArray: '4 6', opacity: 0.9 }).addTo(map);
   }
   if (dopplerFor !== r.radar) loadDoppler(r);
   r.radar.images = frames.map((f) => frameImage(f.rate, grid.w, grid.h));
@@ -501,7 +504,7 @@ function renderMap(r) {
   slider.max = frames.length - 1;
   slider.value = nowIdx;
   if (overlay) overlay.remove();
-  overlay = L.imageOverlay(r.radar.images[nowIdx], grid.bounds, { opacity: 0.85, className: 'radar-img' }).addTo(map);
+  overlay = L.imageOverlay(r.radar.images[nowIdx], grid.bounds, { pane: 'tabLocal', opacity: 0.85, className: 'radar-img' }).addTo(map);
   state.frameIdx = nowIdx;
   showFrame(nowIdx);
   drawVelocity();
@@ -525,7 +528,7 @@ function drawVelocity() {
   const [, slat, slon] = NEXRAD_SITES.find(([id]) => id === site.id) || [];
   if (slat === undefined) return;
   const img = velocityImage(site.id, slat, slon);
-  velLayer = L.imageOverlay(img.url, img.bounds, { opacity: 0.8, className: 'radar-img' }).addTo(map);
+  velLayer = L.imageOverlay(img.url, img.bounds, { pane: 'tabLocal', opacity: 0.8, className: 'radar-img' }).addTo(map);
   velLayer.on('error', () => { $('frameLabel').textContent = `${site.id} velocity unavailable`; });
   $('frameLabel').textContent = `${site.id} Doppler velocity · latest scan`;
   $('frameLabel').classList.remove('fc');
@@ -604,7 +607,7 @@ async function showWaveStep(i) {
   const h = m.steps[i], hh = String(h).padStart(3, '0');
   const files = `${alertServerUrl()}/api/navy/files/${m.cycle}`;
   if (!wavesImg) {
-    wavesImg = L.imageOverlay(`${files}/waves_${hh}.png`, m.bounds, { pane: 'surge', opacity: 0.8, interactive: false }).addTo(map);
+    wavesImg = L.imageOverlay(`${files}/waves_${hh}.png`, m.bounds, { pane: 'tabSeas', opacity: 0.8, interactive: false }).addTo(map);
   } else {
     wavesImg.setUrl(`${files}/waves_${hh}.png`);
   }
@@ -624,8 +627,8 @@ async function showWaveStep(i) {
       lines.push([[lat - dy, lon - dx], head], [wing(0.5), head, wing(-0.5)]);
     }
     wavesArrows = L.layerGroup([
-      L.polyline(lines, { pane: 'surge', color: '#0a1220', weight: 3, opacity: 0.4, interactive: false }),
-      L.polyline(lines, { pane: 'surge', color: '#ffffff', weight: 1.2, opacity: 0.85, interactive: false }),
+      L.polyline(lines, { pane: 'tabSeas', color: '#0a1220', weight: 3, opacity: 0.4, interactive: false }),
+      L.polyline(lines, { pane: 'tabSeas', color: '#ffffff', weight: 1.2, opacity: 0.85, interactive: false }),
     ]).addTo(map);
   } catch { /* arrows are optional */ }
 }
@@ -736,7 +739,7 @@ async function showMarineZone(fit = true) {
   try {
     const g = await zoneGeometry(marineZoneShown);
     if (marineLayer) marineLayer.remove();
-    marineLayer = L.geoJSON(g, { interactive: false, style: { color: '#3ee6c1', weight: 2, fillColor: '#3ee6c1', fillOpacity: 0.08 } }).addTo(map);
+    marineLayer = L.geoJSON(g, { pane: 'tabSeas', interactive: false, style: { color: '#3ee6c1', weight: 2, fillColor: '#3ee6c1', fillOpacity: 0.08 } }).addTo(map);
     if (fit) {
       map.fitBounds(marineLayer.getBounds().pad(0.15));
       $('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -840,13 +843,17 @@ async function loadStorms() {
   } catch {
     return;   // keep what we had; try again on the next refresh
   }
+  const first = !state.stormsLoaded;
+  state.stormsLoaded = true;
   renderStorms();
+  if (first && state.tab === 'storms' && !tabViews.storms) setTab('storms', { remember: false });
 }
 
 function renderStorms() {
   const storms = state.storms;
   updateSurgeOptions();
   $('stormCard').hidden = !storms.length;
+  $('noStormCard').hidden = !!storms.length;
   drawStormLayers();
   if (!storms.length) return;
   const loc = state.result ? state.result.loc : state.picked || state.gps;
@@ -878,7 +885,7 @@ function renderStorms() {
 function drawStormLayers() {
   if (stormLayer) { stormLayer.remove(); stormLayer = null; }
   if (!state.stormMap || !state.storms.length || !map) return;
-  const shape = (g, style) => L.geoJSON(g, { interactive: false, style });
+  const shape = (g, style) => L.geoJSON(g, { pane: 'tabStorms', interactive: false, style });
   const layers = [];
   for (const s of state.storms) {
     for (const g of s.cone) layers.push(shape(g, { color: '#ffffff', weight: 1.5, dashArray: '5 5', fillColor: '#ffffff', fillOpacity: 0.12 }));
@@ -889,14 +896,15 @@ function drawStormLayers() {
     for (const g of s.pastTrack) layers.push(shape(g, { color: '#cfd8e3', weight: 2, opacity: 0.8 }));
     for (const g of s.track) layers.push(shape(g, { color: '#ffffff', weight: 2, dashArray: '6 6' }));
     for (const w of s.warnings) {
-      layers.push(L.geoJSON(w.geometry, { style: { color: WARN_COLORS[w.code] || '#ffffff', weight: 6, opacity: 0.95 } })
+      layers.push(L.geoJSON(w.geometry, { pane: 'tabStorms', style: { color: WARN_COLORS[w.code] || '#ffffff', weight: 6, opacity: 0.95 } })
         .bindTooltip(`${esc(s.name)}: ${WARNING_NAMES[w.code] || w.code}`));
     }
     for (const p of s.points.slice(1)) {
-      layers.push(L.circleMarker([p.lat, p.lon], { radius: 6, color: '#111111', weight: 1, fillColor: catColor(p.kt), fillOpacity: 1 })
+      layers.push(L.circleMarker([p.lat, p.lon], { pane: 'tabStorms', radius: 6, color: '#111111', weight: 1, fillColor: catColor(p.kt), fillOpacity: 1 })
         .bindTooltip(`${esc(s.name)} · ${fmtWhen(p.time)} · ${category(p.kt).name} · ${fmtWind(p.kt)}`));
     }
     layers.push(L.marker([s.lat, s.lon], {
+      pane: 'tabStorms',
       icon: L.divIcon({
         className: 'storm-label', iconSize: [26, 26], iconAnchor: [13, 13],
         html: `<div style="background:${catColor(s.kt)}">${category(s.kt).short}</div><span>${esc(s.name)}</span>`,
@@ -919,6 +927,56 @@ function showStormOnMap(i) {
   const b = shapes.length ? L.featureGroup(shapes).getBounds() : L.latLngBounds([[s.lat, s.lon], [s.lat, s.lon]]);
   map.fitBounds(b.pad(0.1));
   $('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ---------- tabs ----------
+
+const TAB_PANES = { local: ['tabLocal'], storms: ['tabStorms', 'surge'], seas: ['tabSeas'] };
+const tabViews = {};   // map centre/zoom remembered per tab
+
+function defaultView(tab) {
+  const loc = (state.result && state.result.loc) || state.picked || state.gps;
+  if (tab === 'storms') {
+    const shapes = state.storms.flatMap((s) => [...s.cone, ...s.track]).map((g) => L.geoJSON(g));
+    return shapes.length ? { bounds: L.featureGroup(shapes).getBounds().pad(0.1) } : { bounds: L.latLngBounds([[8, -100], [45, -50]]) };
+  }
+  if (tab === 'seas') return loc ? { center: [loc.lat, loc.lon], zoom: 6 } : { bounds: L.latLngBounds([[17, -98], [45, -60]]) };
+  return loc ? { center: [loc.lat, loc.lon], zoom: 8 } : null;
+}
+
+function setTab(tab, { remember = true } = {}) {
+  if (!TAB_PANES[tab]) tab = 'local';
+  const prev = state.tab;
+  if (map && prev && prev !== tab) tabViews[prev] = { center: map.getCenter(), zoom: map.getZoom() };
+  state.tab = tab;
+  if (remember) store.set('tab', tab);
+  document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+  document.querySelectorAll('[data-tab]').forEach((el) => {
+    if (el.tagName === 'BUTTON') return;
+    if (el.dataset.tab !== tab) { el.dataset.tabHidden = '1'; el.style.display = 'none'; } else { delete el.dataset.tabHidden; el.style.display = ''; }
+  });
+  const card = $('mapCard');
+  document.querySelector(`.map-slot[data-slot="${tab}"]`).appendChild(card);
+  card.dataset.tabMap = tab;
+  if (map) {
+    for (const [t, panes] of Object.entries(TAB_PANES)) {
+      for (const p of panes) map.getPane(p).style.display = t === tab ? '' : 'none';
+    }
+    map.invalidateSize();
+    const v = tabViews[tab] || defaultView(tab);
+    if (v && v.bounds) map.fitBounds(v.bounds); else if (v) map.setView(v.center, v.zoom);
+  }
+  if (tab !== 'local') stopPlay();
+  // Charts drawn while their tab was hidden have no size; redraw them now.
+  if (tab === 'local' && state.result) drawChart(state.result.series);
+  // Navy waves come on by themselves the first time Seas & swell is opened.
+  if (tab === 'seas' && store.get('navyWaves', null) === null) {
+    store.set('navyWaves', 'on');
+    $('wavesSel').value = 'on';
+    setWaves(true);
+  }
+  if (tab === 'seas') passageShown();
+  window.scrollTo({ top: 0 });
 }
 
 // ---------- alerts ----------
@@ -1004,6 +1062,10 @@ function bindUi() {
     const b = e.target.closest('button[data-storm]');
     if (b) showStormOnMap(+b.dataset.storm);
   });
+  $('tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-tab]');
+    if (b) setTab(b.dataset.tab);
+  });
   $('velBtn').addEventListener('click', () => {
     state.velocity = !state.velocity;
     drawVelocity();
@@ -1033,6 +1095,7 @@ async function main() {
   initMap();
   initPassage({ server: alertServerUrl, loc: () => state.picked || state.gps, metric, compass });
   if (state.surge && !state.surge.startsWith('live:')) setSurge(state.surge);
+  setTab(new URLSearchParams(location.search).get('tab') || store.get('tab', 'local'), { remember: false });
   if (store.get('navyWaves', '')) setWaves(true);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   const fromUrl = urlLocation();

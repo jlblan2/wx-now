@@ -59,7 +59,13 @@
     </details>
   </section>
 
-  <section class="card hero">
+  <nav id="tabs" class="tabs" aria-label="Sections">
+    <button data-tab="local">Local weather</button>
+    <button data-tab="storms">Hurricanes</button>
+    <button data-tab="seas">Seas &amp; swell</button>
+  </nav>
+
+  <section data-tab="local" class="card hero">
     <p id="place" class="place">&nbsp;</p>
     <p id="summary" class="summary">Loading…</p>
     <p id="status" class="status"></p>
@@ -68,70 +74,52 @@
     <p id="source" class="source"></p>
   </section>
 
-  <section id="stormCard" class="card storms" hidden>
-    <h2>Tropical storms <label class="storm-toggle"><input type="checkbox" id="stormMap"> on map</label></h2>
-    <div id="stormList"></div>
-    <p class="note">From the National Hurricane Center. Follow NHC advisories and local officials for decisions.</p>
-  </section>
+  <div class="map-slot" data-slot="local"></div>
 
-  <section id="hourlyCard" class="card" hidden>
+  <section data-tab="local" id="hourlyCard" class="card" hidden>
     <h2>Next 24 hours <span id="hourlyUnits" class="units"></span></h2>
     <div id="hourly" class="hourly"></div>
   </section>
 
-  <section id="dailyCard" class="card" hidden>
+  <section data-tab="local" id="dailyCard" class="card" hidden>
     <h2>7 days</h2>
     <div id="daily" class="daily"></div>
   </section>
 
-  <section id="secondCard" class="card second" hidden>
+  <section data-tab="local" id="secondCard" class="card second" hidden>
     <h2>Second opinion: NOAA vs Navy</h2>
     <div id="secondBody"></div>
     <p id="secondNote" class="note"></p>
   </section>
 
-  <section class="card map-card">
-    <div id="map"></div>
-    <div id="mapBar" class="map-bar" hidden>
-      <button id="playBtn" class="play" aria-label="Play radar loop">&#9654;</button>
-      <input id="frameSlider" type="range" min="0" max="0" value="0" aria-label="Radar frame">
-      <span id="frameLabel" class="frame-label"></span>
-      <button id="velBtn" class="play vel" aria-label="Show Doppler velocity map" title="Doppler velocity (red/green)">V</button>
-      <button id="arrowBtn" class="play arrows" aria-label="Show storm motion arrows" title="Storm motion arrows">&#x27A4;</button>
-    </div>
-    <div id="velLegend" class="vel-legend" hidden>
-      <span class="sw toward"></span> toward <span id="velSite">radar</span>
-      <span class="sw away"></span> away from it
-      <span class="sw folded"></span> unresolved (range folded)
-      <span class="vel-note">Shows only motion along the radar beam. Bright red next to bright green = strong rotation or wind shift.</span>
-    </div>
-    <p class="hint">White arrows: rain movement tracked on radar. Teal arrows: wind measured by each radar's Doppler (10,000–20,000 ft). Both show 15 minutes of travel. Dashed line: where the next hour's weather is coming from. V: red/green Doppler velocity from the nearest radar. Tap the map to forecast another spot.
-      <button id="gpsBtn" class="link-btn" hidden>Back to my location</button></p>
-    <div class="surge-bar">
-      <label for="surgeSel">Storm surge</label>
-      <select id="surgeSel">
-        <option value="">Off</option>
-        <option value="1">If a Category 1 hurricane hits</option>
-        <option value="2">If a Category 2 hurricane hits</option>
-        <option value="3">If a Category 3 hurricane hits</option>
-        <option value="4">If a Category 4 hurricane hits</option>
-        <option value="5">If a Category 5 hurricane hits</option>
-      </select>
-    </div>
-    <div class="surge-bar navy-bar">
-      <label for="wavesSel">Navy waves</label>
-      <select id="wavesSel"><option value="">Off</option><option value="on">Wave height and direction</option></select>
-    </div>
-    <div id="wavesCtl" class="waves-ctl" hidden>
-      <input id="wavesSlider" type="range" min="0" max="0" value="0" aria-label="Wave forecast time">
-      <span id="wavesLabel" class="frame-label"></span>
-    </div>
-    <div id="wavesLegend" class="surge-legend" hidden></div>
-    <div id="surgeLegend" class="surge-legend" hidden></div>
-    <p id="surgeNote" class="hint" hidden></p>
+  <section data-tab="local" class="card">
+    <dl id="details" class="details"></dl>
   </section>
 
-  <section id="passageCard" class="card passage">
+  <section data-tab="storms" id="stormCard" class="card storms" hidden>
+    <h2>Tropical storms <label class="storm-toggle"><input type="checkbox" id="stormMap"> on map</label></h2>
+    <div id="stormList"></div>
+    <p class="note">From the National Hurricane Center. Follow NHC advisories and local officials for decisions.</p>
+  </section>
+
+  <section id="noStormCard" class="card" data-tab="storms" hidden>
+    <h2>Tropical storms</h2>
+    <p>No active Atlantic tropical storms right now.</p>
+    <p class="note">Check the <a href="https://www.nhc.noaa.gov/gtwo.php?basin=atlc" target="_blank" rel="noopener">NHC tropical weather outlook</a> for areas being watched. The storm surge maps below work any time.</p>
+  </section>
+
+  <div class="map-slot" data-slot="storms"></div>
+
+  <section data-tab="seas" id="marineCard" class="card marine">
+    <h2>Marine forecast</h2>
+    <select id="marineZone" aria-label="Marine zone"></select>
+    <div id="marineAlerts" class="marine-alerts"></div>
+    <div id="marineBody" class="marine-body"><p class="note">Loading…</p></div>
+    <p class="note marine-meta"><span id="marineMeta"></span>
+      <button id="marineMapBtn" class="link-btn">Show zone on map</button></p>
+  </section>
+
+  <section data-tab="seas" id="passageCard" class="card passage">
     <h2>Sailing weather · East Coast, Gulf, Bahamas, Caribbean &amp; Bermuda</h2>
     <div id="pwRegions" class="pw-regions"></div>
     <div class="pw-row">
@@ -156,18 +144,68 @@
     <p id="pwInfo" class="hint">Tap the map for wind, waves, pressure, rain and visibility at that spot.</p>
   </section>
 
-  <section id="marineCard" class="card marine">
-    <h2>Marine forecast</h2>
-    <select id="marineZone" aria-label="Marine zone"></select>
-    <div id="marineAlerts" class="marine-alerts"></div>
-    <div id="marineBody" class="marine-body"><p class="note">Loading…</p></div>
-    <p class="note marine-meta"><span id="marineMeta"></span>
-      <button id="marineMapBtn" class="link-btn">Show zone on map</button></p>
+  <div class="map-slot" data-slot="seas"></div>
+
+  <section id="mapCard" class="card map-card" data-tab-map="local">
+    <div id="map"></div>
+    <div id="mapBar" class="map-bar" data-only="local" hidden>
+      <button id="playBtn" class="play" aria-label="Play radar loop">&#9654;</button>
+      <input id="frameSlider" type="range" min="0" max="0" value="0" aria-label="Radar frame">
+      <span id="frameLabel" class="frame-label"></span>
+      <button id="velBtn" class="play vel" aria-label="Show Doppler velocity map" title="Doppler velocity (red/green)">V</button>
+      <button id="arrowBtn" class="play arrows" aria-label="Show storm motion arrows" title="Storm motion arrows">&#x27A4;</button>
+    </div>
+    <div id="velLegend" class="vel-legend" data-only="local" hidden>
+      <span class="sw toward"></span> toward <span id="velSite">radar</span>
+      <span class="sw away"></span> away from it
+      <span class="sw folded"></span> unresolved (range folded)
+      <span class="vel-note">Shows only motion along the radar beam. Bright red next to bright green = strong rotation or wind shift.</span>
+    </div>
+    <p class="hint" data-only="local">White arrows: rain movement tracked on radar. Teal arrows: wind measured by each radar's Doppler (10,000–20,000 ft). Both show 15 minutes of travel. Dashed line: where the next hour's weather is coming from. V: red/green Doppler velocity from the nearest radar. Tap the map to forecast another spot.
+      <button id="gpsBtn" class="link-btn" hidden>Back to my location</button></p>
+    <p class="hint" data-only="storms">NHC forecast cone (white), track with points coloured by strength, wind field and coastal watches/warnings. Tap a point for details.</p>
+    <div class="surge-bar" data-only="storms">
+      <label for="surgeSel">Storm surge</label>
+      <select id="surgeSel">
+        <option value="">Off</option>
+        <option value="1">If a Category 1 hurricane hits</option>
+        <option value="2">If a Category 2 hurricane hits</option>
+        <option value="3">If a Category 3 hurricane hits</option>
+        <option value="4">If a Category 4 hurricane hits</option>
+        <option value="5">If a Category 5 hurricane hits</option>
+      </select>
+    </div>
+    <div class="surge-bar navy-bar" data-only="seas">
+      <label for="wavesSel">Navy waves</label>
+      <select id="wavesSel"><option value="">Off</option><option value="on">Wave height and direction</option></select>
+    </div>
+    <div id="wavesCtl" class="waves-ctl" data-only="seas" hidden>
+      <input id="wavesSlider" type="range" min="0" max="0" value="0" aria-label="Wave forecast time">
+      <span id="wavesLabel" class="frame-label"></span>
+    </div>
+    <div id="wavesLegend" class="surge-legend" data-only="seas" hidden></div>
+    <div id="surgeLegend" class="surge-legend" data-only="storms" hidden></div>
+    <p id="surgeNote" class="hint" data-only="storms" hidden></p>
+    <p class="hint" data-only="seas">The U.S. Navy WAVEWATCH III wave forecast: colour is wave height, arrows show which way the waves travel.</p>
   </section>
 
-  <section class="card">
-    <dl id="details" class="details"></dl>
-  </section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   <footer>
     Radar: NOAA NEXRAD via Iowa Environmental Mesonet · Model: Open-Meteo (NOAA HRRR) · Basemap: Esri.

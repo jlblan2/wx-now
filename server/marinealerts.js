@@ -115,7 +115,7 @@ export function marineAlertSends(subs, zonesBySub, alerts, zoneName, now = Date.
           title: `${p.event} · ${zoneName(hit[0])}`,
           body: `${what(p.description) || p.headline || ''}${untilText}`.trim(),
           tag: `marine-${p.id}`,
-          url: './',
+          url: './?tab=seas',
         },
       });
     }

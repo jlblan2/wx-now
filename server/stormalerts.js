@@ -32,7 +32,7 @@ export function stormAlerts(subs, storms, watchList, now = Date.now()) {
             title: `${s.title} · ${place.name}`,
             body: `${threatText(s, t)} Closest approach about ${miles} mi ${inWords(t.closest.time - now)}.`,
             tag: `storm-${s.bin}-${place.key}`,
-            url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}`,
+            url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}&tab=storms`,
           },
         });
       }

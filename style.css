@@ -230,3 +230,13 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .pw-row select { flex: 1; min-width: 0; padding: 7px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
 #pwMap { height: 420px; background: #0d1626; }
 .isobar-label { color: #fff; font: 600 11px -apple-system, system-ui, sans-serif; text-align: center; text-shadow: 0 0 3px #000, 0 0 3px #000; background: none; border: none; }
+
+/* tabs */
+.tabs { display: flex; gap: 4px; position: sticky; top: calc(env(safe-area-inset-top) + 60px); z-index: 1050;
+  background: var(--bg); padding: 0 0 10px; }
+.tabs button { flex: 1; background: var(--panel); color: var(--muted); border: 1px solid var(--border); border-radius: 10px;
+  padding: 9px 4px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.tabs button.on { color: var(--text); border-color: var(--accent); background: var(--panel-2, #17304d); }
+.map-card[data-tab-map="local"] [data-only]:not([data-only~="local"]),
+.map-card[data-tab-map="storms"] [data-only]:not([data-only~="storms"]),
+.map-card[data-tab-map="seas"] [data-only]:not([data-only~="seas"]) { display: none !important; }

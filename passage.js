@@ -419,6 +419,11 @@ export function initPassage(o) {
   io.observe($('passageCard'));
 }
 
+// Leaflet needs its size re-read after its container was hidden.
+export function passageShown() {
+  if (map) setTimeout(() => map.invalidateSize(), 0);
+}
+
 export function passageUnitsChanged() {
   if (!inited) return;
   legend();

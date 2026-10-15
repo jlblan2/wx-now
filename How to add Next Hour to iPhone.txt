@@ -83,6 +83,17 @@ You can save up to 10 places.
 
 USING THE APP
 -------------
+Three tabs under the title keep the screen uncluttered; the app remembers the last
+one you used. Each tab has its own forecasts:
+  Local weather  - next-hour rain, the radar map, next 24 hours, 7 days, the NOAA vs
+                   Navy second opinion and current details.
+  Hurricanes     - active Atlantic storms (or a note when there are none), the storm
+                   map and storm surge maps.
+  Seas & swell   - your marine zone forecast, the sailing weather charts and the Navy
+                   wave map.
+The map at the bottom of each tab shows only that tab's layers. Tapping a hurricane
+alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
+
 - When there's an active Atlantic hurricane or tropical storm, a "Tropical storms" card appears
   under the forecast. For each storm it shows strength, movement, how far it is from
   you, its closest forecast approach, and whether you are in the forecast cone or near
