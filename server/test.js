@@ -82,3 +82,28 @@ run('storm alerts escalate once per level and reset when the storm ends', () => 
 });
 
 console.log('All storm alert tests passed');
+
+// ---------- marine alerts ----------
+import { marineAlertSends } from './marinealerts.js';
+
+run('marine alerts: once per NWS alert, only for my zones and qualifying events', () => {
+  const subs = { e1: {} };
+  const alert = (id, event, zones, ends = '2099-01-01T13:00:00-05:00') => ({ properties: {
+    id, event, geocode: { UGC: zones }, ends, headline: event,
+    description: '* WHAT...North winds 20 to 30 kt and seas 5 to 8 ft expected.\n\n* WHERE...Somewhere.',
+  } });
+  const zoneName = (z) => `Zone ${z}`;
+  const mine = { e1: ['GMZ853'] };
+  const a = marineAlertSends(subs, mine, [alert('x1', 'Small Craft Advisory', ['GMZ853', 'GMZ856'])], zoneName);
+  assert.equal(a.length, 1);
+  assert.equal(a[0].payload.title, 'Small Craft Advisory · Zone GMZ853');
+  assert.match(a[0].payload.body, /^North winds 20 to 30 kt and seas 5 to 8 ft expected\. until Thu 1:00 PM$/);
+  assert.equal(marineAlertSends(subs, mine, [alert('x1', 'Small Craft Advisory', ['GMZ853'])], zoneName).length, 0, 'not repeated');
+  assert.equal(marineAlertSends(subs, mine, [alert('x2', 'Gale Warning', ['GMZ853'])], zoneName).length, 1, 'upgrade is a new alert');
+  assert.equal(marineAlertSends(subs, mine, [alert('x3', 'Marine Weather Statement', ['GMZ853'])], zoneName).length, 0, 'statements skipped');
+  assert.equal(marineAlertSends(subs, mine, [alert('x4', 'Small Craft Advisory', ['GMZ830'])], zoneName).length, 0, 'other zones skipped');
+  marineAlertSends(subs, mine, [], zoneName, Date.parse('2100-01-01'));
+  assert.deepEqual(subs.e1.marineSent, {}, 'expired alerts forgotten');
+});
+
+console.log('All marine alert tests passed');

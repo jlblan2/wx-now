@@ -9,7 +9,7 @@ import { fetchModel, describe } from './model.js';
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
 } from './forecast.js';
-import { initPush, reportLocation, pushEnabled } from './push.js';
+import { initPush, reportLocation, pushEnabled, syncMarine } from './push.js';
 
 const REFRESH_MS = 5 * 60000;
 
@@ -852,6 +852,7 @@ function bindUi() {
   $('marineZone').addEventListener('change', (e) => {
     state.marineZone = e.target.value;
     store.set('marineZone', state.marineZone);
+    syncMarine();
     if (marineLoc) loadMarine(marineLoc);
   });
   $('marineMapBtn').addEventListener('click', () => showMarineZone(true));

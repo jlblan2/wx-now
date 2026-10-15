@@ -13,7 +13,10 @@ async function getJson(url) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 20000);
   try {
-    const resp = await fetch(url, { signal: ctl.signal, headers: { Accept: 'application/geo+json' } });
+    const headers = { Accept: 'application/geo+json' };
+    // NWS asks servers to identify themselves; browsers send their own User-Agent.
+    if (typeof window === 'undefined') headers['User-Agent'] = 'NextHour alert server (github.com/jlblan2/next-hour)';
+    const resp = await fetch(url, { signal: ctl.signal, headers });
     if (!resp.ok) throw new Error(`NWS ${resp.status}`);
     const data = await resp.json();
     cache.set(url, { at: Date.now(), data });

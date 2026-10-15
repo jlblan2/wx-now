@@ -63,7 +63,7 @@ async function enable() {
     if (sub && store.get('pushKey', '') !== key) { await sub.unsubscribe(); sub = null; }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
     const here = currentSpot();
-    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here });
+    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs() });
     store.set('pushKey', key);
     store.set('pushOn', true);
     lastSent = here ? { ...here, at: Date.now() } : null;
@@ -97,6 +97,19 @@ async function test() {
     setMsg('Test alert sent. It should arrive within a few seconds.');
   } catch (e) {
     setMsg(`Test failed: ${e.message}`, true);
+  }
+}
+
+// Marine alerts: on/off, plus the zone picked in the marine card ('auto' = follow places).
+const marinePrefs = () => ({ on: store.get('pushMarine', true), zone: store.get('marineZone', 'auto') });
+
+export async function syncMarine() {
+  if (!pushEnabled()) return;
+  try {
+    const sub = await subscription();
+    if (sub) await api('/api/marine', { endpoint: sub.endpoint, ...marinePrefs() });
+  } catch (e) {
+    setMsg(`Could not update marine alerts on the alert server: ${e.message}`, true);
   }
 }
 
@@ -164,8 +177,11 @@ export function initPush(getSpot) {
     const b = e.target.closest('button[data-name]');
     if (b) removePlace(decodeURIComponent(b.dataset.name));
   });
+  $('pushMarine').checked = store.get('pushMarine', true);
+  $('pushMarine').addEventListener('change', (e) => { store.set('pushMarine', e.target.checked); syncMarine(); });
   $('alertServer').value = store.get('alertServer', '');
   $('alertServer').placeholder = ALERT_SERVER || 'https://…';
   $('alertServer').addEventListener('change', (e) => store.set('alertServer', e.target.value.trim()));
   renderPush();
+  syncMarine();   // phones subscribed before marine alerts existed send their choice once
 }

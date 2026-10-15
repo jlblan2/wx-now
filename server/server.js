@@ -13,6 +13,8 @@ import { radarCoverage, runRadar, blend, summarize, precipNoun, cap } from '../f
 import { decide, newState } from './decide.js';
 import { activeStorms } from '../storms.js';
 import { stormAlerts } from './stormalerts.js';
+import { marineZones, marineAlertSends, fetchMarineAlerts } from './marinealerts.js';
+import { GULF_ZONES } from '../data.js';
 
 const PORT = +(process.env.PORT || 8787);
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
@@ -161,6 +163,31 @@ async function stormLoop() {
   setTimeout(stormLoop, STORM_CHECK_MS);
 }
 
+// Marine alerts (Small Craft Advisory and stronger) for each subscriber's Gulf zones.
+const MARINE_CHECK_MS = 5 * 60000;
+const zoneName = (id) => (GULF_ZONES.find(([z]) => z === id) || [id, id])[1];
+
+async function marineLoop() {
+  try {
+    const zonesBySub = {};
+    for (const [endpoint, sub] of Object.entries(subs)) zonesBySub[endpoint] = await marineZones(sub, watchList);
+    const all = [...new Set(Object.values(zonesBySub).flat())];
+    const alerts = all.length ? await fetchMarineAlerts(all) : [];
+    for (const { endpoint, payload } of marineAlertSends(subs, zonesBySub, alerts, zoneName)) {
+      console.log(`Marine alert: ${payload.title}: ${payload.body}`);
+      await push(endpoint, payload);
+    }
+    saveSubs();
+    status.marineZones = all;
+    status.lastMarineCheck = new Date().toISOString();
+    status.lastMarineError = null;
+  } catch (e) {
+    status.lastMarineError = e.message;
+    console.error('Marine check failed:', e.message);
+  }
+  setTimeout(marineLoop, MARINE_CHECK_MS);
+}
+
 async function loop() {
   try {
     await check();
@@ -179,6 +206,10 @@ function cleanPlaces(places) {
   return places.filter(validPoint).slice(0, 10).map((p) => ({
     name: String(p.name || 'Saved place').slice(0, 40), lat: +p.lat, lon: +p.lon,
   }));
+}
+
+function cleanMarine(m) {
+  return { on: m.on !== false, zone: /^GMZ\d{3}$/.test(m.zone || '') ? m.zone : 'auto' };
 }
 
 function readBody(req) {
@@ -211,6 +242,9 @@ const routes = {
       subscription: { endpoint: s.endpoint, keys: { p256dh: s.keys.p256dh, auth: s.keys.auth } },
       places: b.places ? cleanPlaces(b.places) : prev.places || [],
       last: validPoint(b.last) ? { lat: +b.last.lat, lon: +b.last.lon, at: Date.now() } : prev.last || null,
+      marine: b.marine ? cleanMarine(b.marine) : prev.marine || { on: true, zone: 'auto' },
+      marineSent: prev.marineSent || {},
+      stormState: prev.stormState || {},
       state: prev.state || {},
     };
     saveSubs();
@@ -230,6 +264,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.places = cleanPlaces(b.places);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, on, zone } — marine alerts on/off and the zone chosen in the app.
+  'POST /api/marine': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.marine = cleanMarine(b);
     saveSubs();
     return { ok: true };
   },
@@ -274,4 +317,5 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`Next Hour alert server on 127.0.0.1:${PORT}, ${Object.keys(subs).length} subscriber(s)`);
   loop();
   stormLoop();
+  marineLoop();
 });
