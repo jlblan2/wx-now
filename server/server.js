@@ -15,9 +15,11 @@ import { activeStorms } from '../storms.js';
 import { stormAlerts } from './stormalerts.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
+import { navyMeta, navyPoint, navyFile } from './navy.js';
 
 const PORT = +(process.env.PORT || 8787);
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const NAVY_DIR = process.env.NAVY_DIR || path.join(DATA_DIR, 'navy');
 const ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://jlblan2.github.io,http://localhost:8430').split(',');
 const CHECK_MS = 5 * 60000;
 const LAST_LOCATION_MAX_H = 72;   // ignore a last location older than this
@@ -230,7 +232,15 @@ function readBody(req) {
 const routes = {
   'GET /api/vapid': async () => ({ key: vapid.publicKey }),
 
-  'GET /api/status': async () => ({ ...status, subscribers: Object.keys(subs).length }),
+  'GET /api/status': async () => {
+    let navy = null;
+    try { navy = navyMeta(NAVY_DIR).cycle; } catch { /* not fetched yet */ }
+    return { ...status, navy, subscribers: Object.keys(subs).length };
+  },
+
+  // Navy (FNMOC) forecasts: run info, and the series at one point.
+  'GET /api/navy/meta': async () => navyMeta(NAVY_DIR),
+  'GET /api/navy/point': async (_, q) => navyPoint(NAVY_DIR, +q.get('lat'), +q.get('lon')),
 
   // { subscription, places, last: {lat, lon} } — creates or replaces a subscriber.
   'POST /api/subscribe': async (b) => {
@@ -300,11 +310,22 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   }
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
-  const route = routes[`${req.method} ${req.url.split('?')[0]}`];
+  const url = new URL(req.url, 'http://local');
+  const file = req.method === 'GET' && url.pathname.match(/^\/api\/navy\/files\/(\d{10})\/([\w.]+)$/);
+  if (file) {
+    const p = navyFile(NAVY_DIR, file[1], file[2]);
+    if (!p) { res.writeHead(404); return res.end(); }
+    res.writeHead(200, {
+      'Content-Type': p.endsWith('.png') ? 'image/png' : 'application/json',
+      'Cache-Control': 'public, max-age=21600',
+    });
+    return fs.createReadStream(p).pipe(res);
+  }
+  const route = routes[`${req.method} ${url.pathname}`];
   if (!route) { res.writeHead(404); return res.end(); }
   try {
     const body = req.method === 'POST' ? await readBody(req) : null;
-    const out = await route(body || {});
+    const out = await route(body || {}, url.searchParams);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(out));
   } catch (e) {

@@ -12,7 +12,7 @@ DATA=/var/lib/next-hour
 echo "== Packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q git curl ca-certificates iptables-persistent debian-keyring debian-archive-keyring apt-transport-https gnupg
+apt-get install -y -q git curl ca-certificates iptables-persistent debian-keyring debian-archive-keyring apt-transport-https gnupg \n  python3-eccodes python3-numpy python3-pil dpkg-dev
 
 if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 18 ]; then
   echo "== Node.js 20"
@@ -52,6 +52,32 @@ RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+# Navy (FNMOC) forecasts: fetch each new NAVGEM / Navy wave run (checks hourly).
+mkdir -p "$DATA/navy"
+chown nexthour:nexthour "$DATA/navy"
+cat > /etc/systemd/system/next-hour-navy.service <<EOF
+[Unit]
+Description=Fetch Navy NAVGEM and wave forecasts for Next Hour
+After=network-online.target
+[Service]
+Type=oneshot
+User=nexthour
+Environment=NAVY_DIR=$DATA/navy
+ExecStart=/usr/bin/python3 $APP/server/navy/fetch_navy.py
+TimeoutStartSec=45min
+Nice=10
+EOF
+
+cat > /etc/systemd/system/next-hour-navy.timer <<EOF
+[Unit]
+Description=Check NOMADS hourly for new Navy forecasts
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=1h
+[Install]
+WantedBy=timers.target
 EOF
 
 # Pick up new releases from GitHub automatically (checks every 30 minutes).
@@ -105,7 +131,7 @@ $HOST {
 EOF
 
 systemctl daemon-reload
-systemctl enable --now next-hour next-hour-update.timer
+systemctl enable --now next-hour next-hour-update.timer next-hour-navy.timer
 systemctl restart next-hour
 systemctl reload caddy || systemctl restart caddy
 
