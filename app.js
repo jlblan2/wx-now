@@ -3,6 +3,7 @@ import { toLatLon, toPixel, velocityImage } from './radar.js';
 import { NEXRAD_SITES } from './data.js';
 import { dopplerWinds } from './doppler.js';
 import { activeStorms, category, threatTo, threatText, WARNING_NAMES } from './storms.js';
+import { SURGE_CLASSES, riskExport, liveExport, surgeRiskAt, riskSummary } from './surge.js';
 import { fetchModel, describe } from './model.js';
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
@@ -33,6 +34,7 @@ const state = {
   velocity: false,
   stormMap: store.get('stormMap', true),
   storms: [],
+  surge: store.get('surge', ''),
 };
 
 // ---------- formatting ----------
@@ -175,6 +177,10 @@ function render() {
       lines.push(['Self-check', 'Not enough rain nearby in the last hour to score']);
     }
   }
+  if (r.surgeRisk) {
+    const sr = riskSummary(r.surgeRisk);
+    if (sr) lines.push(['Storm surge risk (NHC)', sr]);
+  }
   lines.push(['Updated', fmtTime(new Date(state.lastRefresh))]);
   $('details').innerHTML = lines.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
   if (r.radar && r.radar.doppler) showDopplerDetail(r);
@@ -182,6 +188,7 @@ function render() {
 
   drawChart(r.series, r.noun);
   renderOutlook(r.model);
+  loadSurgeRisk(r);
   if (state.storms.length) renderStorms();
   renderMap(r);
 }
@@ -434,6 +441,7 @@ function frameImage(rate, w, h) {
 
 function initMap() {
   map = L.map('map', { zoomControl: false, attributionControl: true }).setView([30, -90], 7);
+  map.createPane('surge').style.zIndex = 350;   // under the radar layer
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 16, attribution: 'Basemap &copy; Esri',
   }).addTo(map);
@@ -546,6 +554,78 @@ function togglePlay() {
   }, 600);
 }
 
+// ---------- storm surge ----------
+
+let surgeOverlays = [], surgeUpdate = null, surgeToken = 0;
+const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+// Map images from an ArcGIS export, redrawn for the current view after each pan or zoom.
+async function setSurge(value) {
+  const token = ++surgeToken;
+  surgeOverlays.forEach((o) => o.remove());
+  surgeOverlays = [];
+  if (surgeUpdate) { map.off('moveend', surgeUpdate); surgeUpdate = null; }
+  $('surgeLegend').hidden = $('surgeNote').hidden = !value;
+  if (!value) return;
+  let build, note;
+  try {
+    if (value.startsWith('live:')) {
+      const bin = value.slice(5);
+      const s = state.storms.find((x) => x.bin === bin);
+      const b = await liveExport(bin);
+      build = b && ((...a) => b(...a));
+      note = `NHC's potential storm surge flooding for ${s ? esc(s.title) : bin}: a reasonable worst case (about a 1-in-10 chance of being exceeded), with the peak surge ranges NHC gives for each stretch of coast. NHC publishes this only when storm surge watches or warnings are in effect for the US.`;
+    } else {
+      const b = await riskExport(+value);
+      build = (...a) => [b(...a)];
+      note = `Planning map, not a forecast: the worst flooding NHC expects anywhere here if a Category ${value} hurricane hits. Depth is above ground. Leveed areas are not shown.`;
+    }
+  } catch {
+    note = 'Storm surge map unavailable right now.';
+  }
+  if (token !== surgeToken) return;
+  $('surgeNote').innerHTML = note;
+  $('surgeLegend').innerHTML = SURGE_CLASSES.map((c) => `<span><i style="background:${c.color}"></i>${c.label}</span>`).join('');
+  if (!build) return;
+  surgeUpdate = () => {
+    const b = map.getBounds(), size = map.getSize(), k = Math.min(2, window.devicePixelRatio || 1);
+    const sw = L.CRS.EPSG3857.project(b.getSouthWest()), ne = L.CRS.EPSG3857.project(b.getNorthEast());
+    const urls = build(sw.x, sw.y, ne.x, ne.y, Math.round(size.x * k), Math.round(size.y * k));
+    while (surgeOverlays.length < urls.length) {
+      surgeOverlays.push(L.imageOverlay(BLANK_IMG, b, { pane: 'surge', opacity: 0.75, interactive: false }).addTo(map));
+    }
+    urls.forEach((u, i) => { surgeOverlays[i].setBounds(b); surgeOverlays[i].setUrl(u); });
+  };
+  map.on('moveend', surgeUpdate);
+  surgeUpdate();
+}
+
+// Live surge options for active Atlantic / Central Pacific storms.
+function updateSurgeOptions() {
+  const sel = $('surgeSel');
+  [...sel.querySelectorAll('option[value^="live:"]')].forEach((o) => o.remove());
+  for (const s of state.storms.filter((x) => /^(AT|CP)/.test(x.bin))) {
+    const o = document.createElement('option');
+    o.value = `live:${s.bin}`;
+    o.textContent = `Live forecast: ${s.title}`;
+    sel.appendChild(o);
+  }
+  if (state.surge && ![...sel.options].some((o) => o.value === state.surge)) state.surge = '';
+  sel.value = state.surge;
+}
+
+// NHC planning-map surge risk at the forecast location, shown in the details.
+async function loadSurgeRisk(r) {
+  if (r.surgeRisk !== undefined) return;
+  r.surgeRisk = null;
+  try {
+    r.surgeRisk = await surgeRiskAt(r.loc.lat, r.loc.lon);
+  } catch {
+    return;
+  }
+  if (state.result === r) render();
+}
+
 // ---------- tropical storms ----------
 
 // Saffir-Simpson colours by category (TD, TS, 1-5), NHC watch/warning colours, wind radii.
@@ -575,6 +655,7 @@ async function loadStorms() {
 
 function renderStorms() {
   const storms = state.storms;
+  updateSurgeOptions();
   $('stormCard').hidden = !storms.length;
   drawStormLayers();
   if (!storms.length) return;
@@ -589,6 +670,10 @@ function renderStorms() {
       lines.push(`<p>${fmtDist(t.km)} ${compass(t.bearingFrom)} of ${where}. Closest forecast approach: ${fmtDist(t.closest.km)}, ${t.closest.time - Date.now() < 3600000 ? 'now' : fmtWhen(t.closest.time)}.</p>`);
       const tt = threatText(s, t);
       lines.push(`<p class="threat${tt ? '' : ' none'}">${tt || `No cone, watch or warning for ${where}.`}</p>`);
+      const risk = state.result && state.result.surgeRisk, c = category(t.closest.kt || s.kt).level;
+      if (risk && t.closest.km < 150 && c >= 1 && risk[c] >= 0) {
+        lines.push(`<p class="threat">NHC planning maps show storm surge ${SURGE_CLASSES[risk[c]].label.toLowerCase()} above ground possible here from a Category ${c} hurricane.</p>`);
+      }
     }
     const peak = s.points.reduce((a, b) => (b.kt > a.kt ? b : a), s.points[0]);
     if (peak.kt > s.kt) lines.push(`<p>Forecast to strengthen to ${category(peak.kt).name}, ${fmtWind(peak.kt)}, by ${fmtWhen(peak.time)}.</p>`);
@@ -699,6 +784,12 @@ function bindUi() {
   });
   $('frameSlider').addEventListener('input', (e) => { stopPlay(); showFrame(+e.target.value); });
   $('playBtn').addEventListener('click', togglePlay);
+  $('surgeSel').value = state.surge;
+  $('surgeSel').addEventListener('change', (e) => {
+    state.surge = e.target.value;
+    store.set('surge', state.surge);
+    setSurge(state.surge);
+  });
   $('stormMap').checked = state.stormMap;
   $('stormMap').addEventListener('change', (e) => {
     state.stormMap = e.target.checked;
@@ -736,6 +827,7 @@ async function main() {
   bindUi();
   initPush(() => state.picked || state.gps);
   initMap();
+  if (state.surge && !state.surge.startsWith('live:')) setSurge(state.surge);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   const fromUrl = urlLocation();
   if (fromUrl) state.picked = fromUrl;

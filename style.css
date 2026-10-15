@@ -185,3 +185,12 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .storm-label { background: none; border: none; }
 .storm-label div { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; color: #111; font: 700 12px/22px -apple-system, system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px rgba(0,0,0,.4); }
 .storm-label span { position: absolute; left: 30px; top: 3px; white-space: nowrap; color: #fff; font: 600 12px -apple-system, system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+
+/* storm surge */
+.surge-bar { display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 13px; color: var(--muted); }
+.surge-bar select { flex: 1; min-width: 0; padding: 6px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.surge-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 12px 0; font-size: 12px; color: var(--muted); }
+.surge-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.surge-legend i { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+#surgeNote { margin-top: 6px; }
+.leaflet-surge-pane img { image-rendering: auto; }

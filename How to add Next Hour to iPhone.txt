@@ -79,6 +79,12 @@ USING THE APP
   storm force, red = hurricane force) and coastal watches/warnings (yellow = tropical
   storm watch, blue = tropical storm warning, pink = hurricane watch, red = hurricane
   warning). Untick "on map" in the card to hide the storm drawing.
+- Storm surge: the "Storm surge" menu under the map shows NHC's storm surge maps.
+  "If a Category 1-5 hurricane hits" are planning maps: the worst flooding NHC expects
+  for that strength (blue = up to 3 ft above ground, yellow = over 3 ft, orange = over
+  6 ft, red = over 9 ft). During an Atlantic storm that threatens the US, a "Live
+  forecast" choice appears with NHC's actual surge forecast. For coastal locations the
+  details at the bottom also list "Storm surge risk (NHC)" by hurricane category.
 - The headline gives the next hour in plain words, for example
   "Light rain starting in 12 min, stopping 20 min later".
 - The bar chart shows rain minute by minute. Faded bars mean the forecast is less
