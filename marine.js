@@ -1,7 +1,7 @@
-// Gulf marine forecasts from the National Weather Service (api.weather.gov): the zone
+// Gulf and Atlantic marine forecasts from the National Weather Service (api.weather.gov): the zone
 // forecast for one marine zone, active marine advisories/warnings, and the zone outline.
 
-import { GULF_ZONES } from './data.js';
+import { MARINE_ZONES } from './data.js';
 
 const API = 'https://api.weather.gov';
 const CACHE_MS = 15 * 60000;
@@ -32,9 +32,9 @@ function km(a, b) {
   return Math.hypot(x, y) * 111.2;
 }
 
-// Gulf zones nearest first: [{ id, name, km }].
+// Marine zones nearest first: [{ id, name, km }].
 export function zonesByDistance(loc) {
-  return GULF_ZONES.map(([id, name, lat, lon]) => ({ id, name, km: loc ? km(loc, { lat, lon }) : 0 }))
+  return MARINE_ZONES.map(([id, name, lat, lon]) => ({ id, name, km: loc ? km(loc, { lat, lon }) : 0 }))
     .sort((a, b) => a.km - b.km);
 }
 
@@ -42,7 +42,7 @@ export function zonesByDistance(loc) {
 export async function zoneFor(loc) {
   try {
     const j = await getJson(`${API}/zones?type=marine&point=${loc.lat.toFixed(4)},${loc.lon.toFixed(4)}`);
-    const f = (j.features || []).find((z) => /^GMZ/.test(z.properties.id));
+    const f = (j.features || []).find((z) => /^(GMZ|AMZ|ANZ)\d{3}$/.test(z.properties.id));
     if (f) return f.properties.id;
   } catch { /* fall back to nearest */ }
   return zonesByDistance(loc)[0].id;
@@ -51,7 +51,7 @@ export async function zoneFor(loc) {
 // Splits a period's text into wind / seas summaries; the full text stays available.
 function summarize(text) {
   const sentences = text.split(/(?<=\.)\s+/);
-  const wind = sentences.find((s) => /knots|winds? (light|variable)/i.test(s)) || '';
+  const wind = sentences.find((s) => /knots|\bkts?\b|winds? (light|variable)/i.test(s)) || '';
   const seas = sentences.find((s) => /^(seas|waves)\b/i.test(s)) || sentences.find((s) => /\bseas\b|\bfeet\b|\bfoot\b/i.test(s)) || '';
   const water = sentences.find((s) => /bay and inland waters|chop/i.test(s)) || '';
   return { wind: wind.replace(/\.$/, ''), seas: seas.replace(/\.$/, ''), water: water.replace(/\.$/, '') };
@@ -65,7 +65,7 @@ export async function marineForecast(zoneId) {
   const p = fc.properties || {};
   return {
     zone: zoneId,
-    name: (GULF_ZONES.find(([id]) => id === zoneId) || [])[1] || zoneId,
+    name: (MARINE_ZONES.find(([id]) => id === zoneId) || [])[1] || zoneId,
     updated: p.updated,
     periods: (p.periods || []).map((x) => ({ name: x.name, text: x.detailedForecast, ...summarize(x.detailedForecast) })),
     alerts: (alerts.features || []).map((a) => ({

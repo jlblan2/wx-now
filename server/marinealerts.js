@@ -1,5 +1,5 @@
 // Marine alerts: Small Craft Advisories and stronger marine hazards for each subscriber's
-// Gulf marine zones (the zone chosen in the app, plus the zone at each watched place that
+// Gulf and Atlantic marine zones (the zone chosen in the app, plus the zone at each watched place that
 // lies near the water). Each NWS alert is pushed once per subscriber.
 import { zoneFor, zonesByDistance } from '../marine.js';
 
@@ -11,13 +11,13 @@ export const MARINE_EVENTS = new Set([
   'Hazardous Seas Watch', 'Hazardous Seas Warning',
   'Special Marine Warning',
 ]);
-const NEAR_KM = 100;   // a watched place counts only if a Gulf zone is this close
+const NEAR_KM = 100;   // a watched place counts only if a marine zone is this close
 
 // Zones to watch for one subscriber. Point lookups are cached on the subscriber.
 export async function marineZones(sub, watchList) {
   if (sub.marine && sub.marine.on === false) return [];
   const zones = new Set();
-  if (sub.marine && /^GMZ\d{3}$/.test(sub.marine.zone || '')) zones.add(sub.marine.zone);
+  if (sub.marine && /^(GMZ|AMZ|ANZ)\d{3}$/.test(sub.marine.zone || '')) zones.add(sub.marine.zone);
   const cache = sub.zoneCache = sub.zoneCache || {};
   for (const place of watchList(sub)) {
     const key = `${place.lat.toFixed(3)},${place.lon.toFixed(3)}`;

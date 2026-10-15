@@ -56,10 +56,10 @@ With alerts on you also get hurricane alerts for the same places: when a place c
 inside a storm's forecast cone, when a watch or warning covers the nearby coast (and
 again if it is upgraded), and when tropical-storm- or hurricane-force winds arrive.
 
-Gulf marine alerts: with "Include Gulf marine alerts" ticked in Settings (on by
+Marine alerts: with "Include marine alerts" ticked in Settings (on by
 default) you also get an alert when the NWS issues a Small Craft Advisory, Gale,
 Storm, Hurricane Force Wind or Hazardous Seas watch/warning, or a Special Marine
-Warning, for the zone picked in the Gulf marine card or the marine zone at your saved
+Warning, for the zone picked in the marine forecast card or the marine zone at your saved
 places and last location (when they are near the water). Each one alerts once, and an
 upgrade (say, Small Craft Advisory to Gale Warning) alerts again.
 
@@ -114,8 +114,8 @@ USING THE APP
   to the rain map.
 - Tap the refresh arrow at the top to update. The app also refreshes every 5 minutes
   while it is open.
-- "Gulf marine forecast" (below the map) shows the National Weather Service forecast
-  for the Gulf marine zone nearest you: wind, seas and bay conditions for the next
+- "Marine forecast" (below the map) shows the National Weather Service forecast for
+  the Gulf or Atlantic coast marine zone nearest you: wind, seas and bay conditions for the next
   few days, with any Small Craft Advisory, Gale Warning or other marine alert shown in
   colour at the top. Tap a period for the full NWS text. Use the menu to pick another
   zone (listed nearest first, distances in nautical miles); "Show zone on map" outlines

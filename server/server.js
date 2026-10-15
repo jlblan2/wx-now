@@ -14,7 +14,7 @@ import { decide, newState } from './decide.js';
 import { activeStorms } from '../storms.js';
 import { stormAlerts } from './stormalerts.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts } from './marinealerts.js';
-import { GULF_ZONES } from '../data.js';
+import { MARINE_ZONES } from '../data.js';
 
 const PORT = +(process.env.PORT || 8787);
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), 'data');
@@ -163,9 +163,9 @@ async function stormLoop() {
   setTimeout(stormLoop, STORM_CHECK_MS);
 }
 
-// Marine alerts (Small Craft Advisory and stronger) for each subscriber's Gulf zones.
+// Marine alerts (Small Craft Advisory and stronger) for each subscriber's marine zones.
 const MARINE_CHECK_MS = 5 * 60000;
-const zoneName = (id) => (GULF_ZONES.find(([z]) => z === id) || [id, id])[1];
+const zoneName = (id) => (MARINE_ZONES.find(([z]) => z === id) || [id, id])[1];
 
 async function marineLoop() {
   try {
@@ -209,7 +209,7 @@ function cleanPlaces(places) {
 }
 
 function cleanMarine(m) {
-  return { on: m.on !== false, zone: /^GMZ\d{3}$/.test(m.zone || '') ? m.zone : 'auto' };
+  return { on: m.on !== false, zone: /^(GMZ|AMZ|ANZ)\d{3}$/.test(m.zone || '') ? m.zone : 'auto' };
 }
 
 function readBody(req) {

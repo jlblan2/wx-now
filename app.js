@@ -557,7 +557,7 @@ function togglePlay() {
   }, 600);
 }
 
-// ---------- Gulf marine forecast ----------
+// ---------- marine forecast (Gulf and Atlantic) ----------
 
 let marineLayer = null, marineLoc = null, marineZoneShown = null;
 const NM_PER_KM = 0.539957;

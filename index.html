@@ -38,8 +38,8 @@
       <button id="pushToggle" class="btn">Turn on</button>
       <button id="pushTest" class="btn ghost" hidden>Send test alert</button>
     </div>
-    <label class="check"><input type="checkbox" id="pushMarine"> Include Gulf marine alerts: Small Craft Advisory, Gale, Storm and Special Marine Warnings</label>
-    <p class="note">For the zone picked in the Gulf marine card, and the marine zone at each saved place or last location that is near the water.</p>
+    <label class="check"><input type="checkbox" id="pushMarine"> Include marine alerts: Small Craft Advisory, Gale, Storm and Special Marine Warnings</label>
+    <p class="note">Gulf and Atlantic coast. For the zone picked in the marine forecast card, and the marine zone at each saved place or last location that is near the water.</p>
     <p id="pushMsg" class="note msg"></p>
 
     <h3>Saved places</h3>
@@ -117,7 +117,7 @@
   </section>
 
   <section id="marineCard" class="card marine">
-    <h2>Gulf marine forecast</h2>
+    <h2>Marine forecast</h2>
     <select id="marineZone" aria-label="Marine zone"></select>
     <div id="marineAlerts" class="marine-alerts"></div>
     <div id="marineBody" class="marine-body"><p class="note">Loading…</p></div>
