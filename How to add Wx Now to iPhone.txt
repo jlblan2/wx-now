@@ -130,6 +130,10 @@ Under the tabs is a row of places: "My location" (your GPS) and each saved place
 Tap one to switch the whole app - forecast, radar, marine zone and tides - to that
 place; the app remembers the last place you chose. The + button opens Settings to
 save the spot you are looking at as a new place.
+All times in the app are local time at the place shown, not your phone's time zone:
+Reykjavik shows Iceland time, Mobile shows Central time, and a spot out at sea shows its
+nautical time zone (for example GMT-6 in the central Gulf). Details > "Local time" shows
+the time there now, and notes when it differs from your phone. Alerts use the same rule.
 A slider on the right edge of the screen shows where you are on the page: drag it,
 or tap the track, to scroll quickly up and down.
 The map at the bottom of each tab shows only that tab's layers. Tapping a hurricane

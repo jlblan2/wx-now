@@ -40,11 +40,11 @@ export function decideWaterTemp(st, b, thresholdF) {
   return kind;
 }
 
-export function waterTempMessage(kind, st, b, placeName, metric) {
+export function waterTempMessage(kind, st, b, placeName, metric, timeZone = 'America/New_York') {
   const t = (f) => (metric ? `${((f - 32) * 5 / 9).toFixed(1)} °C` : `${Math.round(f)} °F`);
   const d = (f) => (metric ? `${(Math.abs(f) * 5 / 9).toFixed(1)} °C` : `${Math.round(Math.abs(f))} °F`);
   const now = toF(b.wtmp);
-  const since = new Date(st.fromT).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+  const since = new Date(st.fromT).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone });
   const where = b.name ? shortName(b.name) : `Station ${b.id}`;
   return {
     title: `Water ${kind} · ${where}${placeName ? ` (${placeName})` : ''}`,

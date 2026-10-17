@@ -7,6 +7,7 @@ import { SURGE_CLASSES, riskExport, liveExport, surgeRiskAt, riskSummary } from 
 import { tropicalOutlook, RISK_COLORS } from './outlook.js';
 import { zonesByDistance, zoneFor, marineForecast, zoneGeometry } from './marine.js';
 import { fetchModel, describe } from './model.js';
+import { useZoneFor, confirmZone, timeOf, hourOf, dayOf, dayHourOf, whenOf, zoneName, differsFromPhone } from './clock.js';
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
 } from './forecast.js';
@@ -49,7 +50,7 @@ const fmtRate = (mm) => metric() ? `${mm.toFixed(mm < 10 ? 1 : 0)} mm/h` : `${(m
 const fmtDist = (km) => metric() ? `${Math.round(km)} km` : `${Math.round(km * 0.621371)} mi`;
 const fmtSpeed = (kmh) => metric() ? `${Math.round(kmh)} km/h` : `${Math.round(kmh * 0.621371)} mph`;
 const fmtTemp = (c) => metric() ? `${Math.round(c)}°C` : `${Math.round(c * 9 / 5 + 32)}°F`;
-const fmtTime = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const fmtTime = (d) => timeOf(d);   // local time at the selected place
 const fmtCoord = (p) =>
   `${Math.abs(p.lat).toFixed(3)}°${p.lat >= 0 ? 'N' : 'S'} ${Math.abs(p.lon).toFixed(3)}°${p.lon >= 0 ? 'E' : 'W'}`;
 const compass = (deg) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((deg % 360) + 360) % 360 / 45) % 8];
@@ -95,6 +96,7 @@ async function refresh() {
   $('refreshBtn').classList.add('spin');
   setStatus('Updating…');
   try {
+    await useZoneFor(loc.lat, loc.lon);
     loadStorms();
     loadOutlook();
     loadMarine(loc);
@@ -121,6 +123,7 @@ async function refresh() {
     // Radar is usually ready first: show it, then fold in the model when it arrives.
     if (radar) show(null);
     const model = await modelP;
+    if (model && model.timezone) confirmZone(loc.lat, loc.lon, model.timezone);
     if (!radar && !model) throw radarErr || new Error('No forecast data available');
     if (model) show(model);
     maybeAlert(state.result.summary, state.result.noun);
@@ -189,6 +192,7 @@ function render() {
     const sr = riskSummary(r.surgeRisk);
     if (sr) lines.push(['Storm surge risk (NHC)', sr]);
   }
+  lines.push(['Local time', `${timeOf(Date.now())} ${zoneName()}${differsFromPhone() ? ' (all times here are local to this place)' : ''}`]);
   lines.push(['Updated', fmtTime(new Date(state.lastRefresh))]);
   $('details').innerHTML = lines.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
   if (r.radar && r.radar.doppler) showDopplerDetail(r);
@@ -214,9 +218,7 @@ function renderOutlook(model) {
     return;
   }
   $('hourlyCard').hidden = $('dailyCard').hidden = false;
-  const tz = model.timezone;
-  const hourFmt = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', timeZone: tz });
-  const dayFmt = (ms) => new Date(ms).toLocaleDateString([], { weekday: 'short', timeZone: tz });
+  const hourFmt = hourOf, dayFmt = dayOf;
   const pop = (p) => (p !== null && p >= 10 ? `<span class="pop">${Math.round(p)}%</span>` : '<span class="pop"></span>');
 
   $('hourlyUnits').textContent = `· wind ${metric() ? 'km/h' : 'mph'}`;
@@ -618,7 +620,7 @@ async function showWaveStep(i) {
     wavesImg.setUrl(`${files}/waves_${hh}.png`);
   }
   const t = new Date(Date.parse(m.base) + h * 3600000);
-  $('wavesLabel').textContent = `${t.toLocaleString([], { weekday: 'short', hour: 'numeric' })}`;
+  $('wavesLabel').textContent = dayHourOf(t);
   try {
     const pts = await (await fetch(`${files}/arrows_${hh}.json`)).json();
     if (navyMeta !== m || +$('wavesSlider').value !== i) return;
@@ -670,7 +672,7 @@ function renderSecondOpinion(r) {
   }
   const names = { hi: 'high', lo: 'low', rain: metric() ? 'rain' : 'rain', wind: 'wind', wave: 'waves' };
   const flagged = s.rows.filter((x) => x.flags.length);
-  const dayName = (d) => new Date(`${d}T12:00:00`).toLocaleDateString([], { weekday: 'short' });
+  const dayName = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString([], { weekday: 'short', timeZone: 'UTC' });   // d is already the place's date
   const summary = flagged.length
     ? `The models disagree on ${flagged.map((x) => `${dayName(x.date)} (${x.flags.map((f) => names[f]).join(', ')})`).join('; ')} — lower confidence there.`
     : 'NOAA and the Navy agree closely for the next few days — higher confidence in the forecast.';
@@ -681,7 +683,7 @@ function renderSecondOpinion(r) {
     <tbody>${s.rows.map((row) => `<tr><td>${dayName(row.date)}<small>NOAA / Navy</small></td>
       ${cell(row, 'hi', temp)}${cell(row, 'lo', temp)}${cell(row, 'rain', fmtRain)}${cell(row, 'wind', fmtWindN)}${s.coastal ? cell(row, 'wave', fmtWave) : ''}</tr>`).join('')}</tbody></table>
     <p class="key">Top: NOAA (GFS${s.coastal ? ', GFS-Wave' : ''}). Below: Navy (NAVGEM${s.coastal ? ', WAVEWATCH III' : ''}). Orange = the two disagree. Wind is the day's strongest sustained wind.</p>`;
-  $('secondNote').textContent = `Navy run ${new Date(s.navyRun).toLocaleString([], { weekday: 'short', hour: 'numeric' })}. Navy highs and lows come from 3- to 6-hourly values, so they can run slightly milder than NOAA's.`;
+  $('secondNote').textContent = `Navy run ${dayHourOf(s.navyRun)}. Navy highs and lows come from 3- to 6-hourly values, so they can run slightly milder than NOAA's.`;
 }
 
 // ---------- marine forecast (Gulf and Atlantic) ----------
@@ -733,7 +735,7 @@ async function loadMarine(loc) {
         <p class="full" hidden>${esc(p.text)}</p>
       </div>`).join('') || '<p class="note">No forecast available for this zone right now.</p>');
     const upd = f.updated ? new Date(f.updated) : null;
-    $('marineMeta').textContent = `${f.source ? `${f.source}, zone` : 'NWS zone'} ${zone}${upd ? ` · updated ${upd.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : ''} · tap a period for the full text ·`;
+    $('marineMeta').textContent = `${f.source ? `${f.source}, zone` : 'NWS zone'} ${zone}${upd ? ` · updated ${whenOf(upd)}` : ''} · tap a period for the full text ·`;
     if (marineLayer) showMarineZone(false);
   } catch (e) {
     body.innerHTML = `<p class="note">Marine forecast unavailable: ${esc(e.message)}</p>`;
@@ -857,7 +859,7 @@ function renderOutlookCard() {
       return `<p>${esc(p).replace(/^(\d\.\s)/, '<strong>$1</strong>')}</p>`;
     }).join('');
   }
-  const when = o.textTime ? new Date(o.textTime).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+  const when = o.textTime ? whenOf(o.textTime) : '';
   $('outlookMeta').innerHTML = `National Hurricane Center${when ? `, issued ${esc(when)}` : ''}${o.text && o.text.forecaster ? ` · ${esc(o.text.forecaster)}` : ''}` +
     `${o.areas.length ? ` · ${o.areas.length} area${o.areas.length > 1 ? 's' : ''} on the map` : ''} · ` +
     '<a href="https://www.nhc.noaa.gov/gtwo.php?basin=atlc" target="_blank" rel="noopener">NHC outlook page</a>';
@@ -910,7 +912,7 @@ const KT_KMH = 1.852;
 const fmtWind = (kt) => (metric() ? `${Math.round(kt * KT_KMH / 5) * 5} km/h` : `${Math.round(kt * 1.15078 / 5) * 5} mph`);
 const catColor = (kt) => CAT_COLORS[category(kt).short];
 const catBadge = (kt) => { const c = category(kt).short; return c === 'TD' || c === 'TS' ? c : `Cat ${c}`; };
-const fmtWhen = (ms) => new Date(ms).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const fmtWhen = (ms) => whenOf(ms);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function advisoryUrl(bin) {

@@ -3,6 +3,7 @@
 // tide right now, plus the water level measured at the nearest working gauge and how far
 // it is above or below the prediction (the effect of wind, pressure and surge). Heights are above MLLW (mean lower low water), the chart datum.
 import { TIDE_STATIONS, WL_STATIONS } from './tidestations.js';
+import { timeOf, dayOf, dateOf, dayStart } from './clock.js';
 
 const API = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
 const NM_PER_KM = 0.539957;
@@ -104,7 +105,7 @@ function heightAt(ex, t) {
   return NaN;
 }
 
-const time = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const time = (t) => timeOf(t);   // local time at the selected place
 
 function drawChart(ex, unit, obs) {
   const cv = $('tideChart'), dpr = window.devicePixelRatio || 1;
@@ -115,8 +116,7 @@ function drawChart(ex, unit, obs) {
   ctx.scale(dpr, dpr);
   const css = getComputedStyle(document.documentElement);
   const muted = css.getPropertyValue('--muted').trim(), grid = css.getPropertyValue('--border').trim();
-  const day0 = new Date(); day0.setHours(0, 0, 0, 0);
-  const t0 = day0.getTime(), t1 = t0 + 3 * 86400000;
+  const t0 = dayStart(), t1 = dayStart(Date.now(), 3);
   const shown = ex.filter((e) => e.t >= t0 - 86400000 && e.t <= t1 + 86400000);
   const vals = [...shown.map((e) => e.v), ...(obs || []).filter((o) => o.t >= t0).map((o) => o.v)];
   const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.15 || 0.5;
@@ -126,11 +126,12 @@ function drawChart(ex, unit, obs) {
   ctx.font = '11px -apple-system, system-ui, sans-serif';
   ctx.strokeStyle = grid; ctx.fillStyle = muted; ctx.lineWidth = 1;
   for (let d = 0; d <= 3; d++) {
-    const x = X(t0 + d * 86400000);
+    const x = X(dayStart(Date.now(), d));
     ctx.beginPath(); ctx.moveTo(x + 0.5, T0); ctx.lineTo(x + 0.5, T0 + ph); ctx.stroke();
     if (d < 3) {
       ctx.textAlign = 'center';
-      ctx.fillText(new Date(t0 + (d + 0.5) * 86400000).toLocaleDateString([], { weekday: 'short' }), x + pw / 6, H - 5);
+      const next = X(dayStart(Date.now(), d + 1));
+      ctx.fillText(dayOf(dayStart(Date.now(), d) + 12 * 3600000), (x + next) / 2, H - 5);
     }
   }
   ctx.textAlign = 'right';
@@ -188,12 +189,11 @@ function render(st, ex, wl) {
   drawChart(ex, u, sameGauge ? wl.obs : null);
   $('tideMeasured').innerHTML = measuredText(wl, unit, u, sameGauge);
   // Table: today and the next two days.
-  const day0 = new Date(); day0.setHours(0, 0, 0, 0);
   const rows = [];
   for (let d = 0; d < 3; d++) {
-    const a = day0.getTime() + d * 86400000, b = a + 86400000;
+    const a = dayStart(Date.now(), d), b = dayStart(Date.now(), d + 1);
     const list = ex.filter((e) => e.t >= a && e.t < b);
-    rows.push(`<tr><th>${new Date(a).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</th><td>${
+    rows.push(`<tr><th>${dateOf(a + 12 * 3600000)}</th><td>${
       list.map((e) => `<span class="${e.type.startsWith('H') ? 'hi' : 'lo'}">${e.type.startsWith('H') ? 'High' : 'Low'} ${time(e.t)} · ${e.v.toFixed(1)}${unit}</span>`).join('')}</td></tr>`);
   }
   $('tideTable').innerHTML = `<table>${rows.join('')}</table>`;

@@ -1,4 +1,5 @@
 import { loadBuoys, fmtTemp, cToF } from './seatemp.js';
+import { timeOf, dayHourOf } from './clock.js';
 
 // Sailing weather: forecast maps for the US East Coast, the Gulf
 // of America, the Bahamas, the Caribbean and Bermuda. Wind (speed colours + barbs in knots), waves (height + direction), pressure
@@ -264,7 +265,7 @@ function buoyText(b) {
   if (b.atmp !== null) bits.push(`air ${fmtTemp(b.atmp, metric)}`);
   if (b.wvht !== null) bits.push(`waves ${metric ? `${b.wvht.toFixed(1)} m` : `${Math.round(b.wvht * FT)} ft`}${b.dpd !== null ? ` at ${Math.round(b.dpd)} s` : ''}`);
   if (b.wspd !== null) bits.push(`wind ${b.wdir !== null ? `${opts.compass(b.wdir)} ` : ''}${Math.round(b.wspd * KT)} kt`);
-  const t = new Date(b.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const t = timeOf(b.t);
   return `${b.name || 'Station'} (${b.id}), measured ${t}: ${bits.join(' · ')}`;
 }
 
@@ -315,7 +316,7 @@ async function loadLevels() {
 function levelText(g) {
   const u = opts.metric() ? 0.3048 : 1, unit = opts.metric() ? ' m' : ' ft';
   const v = (x) => `${(x * u).toFixed(1)}${unit}`;
-  const t = new Date(g.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const t = timeOf(g.t);
   const diff = g.above === null ? '' : Math.abs(g.above) < 0.15 ? ', close to predicted'
     : `, ${v(Math.abs(g.above))} ${g.above > 0 ? 'above' : 'below'} predicted`;
   const trend = g.rising === 1 ? ', rising' : g.rising === -1 ? ', falling' : '';
@@ -416,7 +417,7 @@ async function draw() {
   $('pwSlider').max = m.steps.length - 1;
   $('pwSlider').value = stepIdx;
   const h = m.steps[stepIdx], t = new Date(Date.parse(m.base) + h * 3600000);
-  $('pwLabel').textContent = `${t.toLocaleString([], { weekday: 'short', hour: 'numeric' })}`;
+  $('pwLabel').textContent = dayHourOf(t);
   const token = ++drawToken;
   let data;
   try { data = await loadStep(m, stepIdx); } catch (e) {

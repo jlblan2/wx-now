@@ -21,6 +21,7 @@ import { initWaterLevels, sweepWaterLevels, waterLevelSnapshot } from './waterle
 import { refreshBuoys, buoySnapshot } from './buoys.js';
 import { buoyFor, decideWaterTemp, waterTempMessage } from './watertemp.js';
 import { windForecast, windEvent, decideWind, windMessage } from './windalerts.js';
+import { zoneOf } from './zones.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
@@ -319,7 +320,7 @@ async function waterTempAlerts(stations) {
       const s = st[b.id] = st[b.id] || {};
       const kind = decideWaterTemp(s, b, threshold);
       if (!kind) continue;
-      const msg = waterTempMessage(kind, s, b, place.name === 'Your last location' ? '' : place.name, sub.metric);
+      const msg = waterTempMessage(kind, s, b, place.name === 'Your last location' ? '' : place.name, sub.metric, await zoneOf(place.lat, place.lon));
       console.log(`Water temperature: ${msg.title}: ${msg.body}`);
       await push(endpoint, { ...msg, tag: `watertemp-${b.id}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}&tab=seas` });
     }
