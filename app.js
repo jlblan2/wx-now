@@ -1179,7 +1179,7 @@ function maybeAlert(summary, noun) {
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const title = `${cap(noun)} nearby`;
-  const opts = { body: summary.text, icon: 'icons/icon-192.png', tag: 'nexthour' };
+  const opts = { body: summary.text, icon: 'icons/icon-192.png', tag: 'wxnow' };
   // iPhone home-screen apps can only notify through the service worker.
   if (navigator.serviceWorker && navigator.serviceWorker.controller) {
     navigator.serviceWorker.ready.then((reg) => reg.showNotification(title, opts)).catch(() => {});

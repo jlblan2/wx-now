@@ -1,8 +1,8 @@
 {
-  "name": "next-hour-alerts",
+  "name": "wx-now-alerts",
   "private": true,
   "type": "module",
-  "description": "Push alert server for the Next Hour app",
+  "description": "Push alert server for the Wx Now app",
   "main": "server.js",
   "engines": { "node": ">=18" },
   "dependencies": {

@@ -48,7 +48,7 @@ function localTime(iso) {
 // Active alerts for a list of zones, straight from the NWS.
 export async function fetchMarineAlerts(zones) {
   const resp = await fetch(`https://api.weather.gov/alerts/active?zone=${zones.join(',')}`, {
-    headers: { Accept: 'application/geo+json', 'User-Agent': 'NextHour alert server (github.com/jlblan2/next-hour)' },
+    headers: { Accept: 'application/geo+json', 'User-Agent': 'WxNow alert server (github.com/jlblan2/wx-now)' },
   });
   if (!resp.ok) throw new Error(`NWS alerts ${resp.status}`);
   return (await resp.json()).features || [];

@@ -57,7 +57,7 @@ async function enable() {
   setMsg('Turning on…');
   try {
     const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return setMsg('Notifications are blocked. Allow them in Settings → Notifications → Next Hour.', true);
+    if (perm !== 'granted') return setMsg('Notifications are blocked. Allow them in Settings → Notifications → Wx Now.', true);
     const { key } = await api('/api/vapid');
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();

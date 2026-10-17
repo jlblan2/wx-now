@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Navy (FNMOC) forecasts for Next Hour, from NOAA NOMADS.
+"""Navy (FNMOC) forecasts for Wx Now, from NOAA NOMADS.
 
 Downloads the latest complete run (0-120 h: 3-hourly to 24 h, then 6-hourly) of
   - NAVGEM, the Navy's global weather model (temperature, wind, rain, pressure), and
@@ -31,8 +31,8 @@ from pacific import pacific_mask  # noqa: E402 - Atlantic side only: Pacific cel
 from PIL import Image
 
 NOMADS = 'https://nomads.ncep.noaa.gov/pub/data/nccf/com/fnmoc/prod'
-OUT = os.environ.get('NAVY_DIR', '/var/lib/next-hour/navy')
-UA = {'User-Agent': 'NextHour alert server (github.com/jlblan2/next-hour)'}
+OUT = os.environ.get('NAVY_DIR', '/var/lib/wx-now/navy')
+UA = {'User-Agent': 'WxNow alert server (github.com/jlblan2/wx-now)'}
 STEPS = [int(x) for x in os.environ['NAVY_STEPS'].split(',')] if os.environ.get('NAVY_STEPS') else list(range(0, 24, 3)) + list(range(24, 121, 6))   # NAVGEM is 3-hourly to 24 h, then 6-hourly
 LAT0, LAT1, LON0, LON1 = 0.0, 60.0, -130.0, -50.0   # region (0.5 degree grid)
 RES = 0.5

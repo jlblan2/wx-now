@@ -1,7 +1,7 @@
 // Tropical storms from the National Hurricane Center, via NOAA's NHC_tropical_weather map
 // service (ArcGIS REST, GeoJSON). Shared by the app (map + storm card) and the alert server.
 // The service has fixed "bins" per basin (AT1-5, EP1-5, CP1-5), each with forecast points,
-// track, cone, coastal watches/warnings, past track and wind radii layers. Next Hour covers
+// track, cone, coastal watches/warnings, past track and wind radii layers. Wx Now covers
 // the Atlantic side only, so just the Atlantic bins (AT1-5) are read.
 
 const SERVICE = 'https://mapservices.weather.noaa.gov/tropical/rest/services/tropical/NHC_tropical_weather/MapServer';

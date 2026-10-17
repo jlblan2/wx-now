@@ -34,7 +34,7 @@ async function highsLows(id, metric) {
   if (!cache.has(key)) {
     const q = new URLSearchParams({
       product: 'predictions', station: id, begin_date: ymd(start), range: '120', datum: 'MLLW',
-      interval: 'hilo', units: metric ? 'metric' : 'english', time_zone: 'gmt', format: 'json', application: 'NextHour',
+      interval: 'hilo', units: metric ? 'metric' : 'english', time_zone: 'gmt', format: 'json', application: 'WxNow',
     });
     const p = fetch(`${API}?${q}`).then((r) => r.json()).then((j) => {
       if (j.error) throw new Error(j.error.message || 'No predictions');
@@ -75,7 +75,7 @@ async function measured(st, metric) {
   if (!best || best.km > WL_NEAR_KM) return null;
   const key = `wl|${best.id}|${metric}|${Math.floor(Date.now() / 360000)}`;   // new data every 6 min
   if (!cache.has(key)) {
-    const common = { station: best.id, datum: 'MLLW', units: metric ? 'metric' : 'english', time_zone: 'gmt', format: 'json', application: 'NextHour' };
+    const common = { station: best.id, datum: 'MLLW', units: metric ? 'metric' : 'english', time_zone: 'gmt', format: 'json', application: 'WxNow' };
     const get = (q) => fetch(`${API}?${new URLSearchParams({ ...common, ...q })}`).then((r) => r.json());
     const start = new Date(Date.now() - 30 * 3600000);
     const p = Promise.all([

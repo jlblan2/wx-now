@@ -1,6 +1,6 @@
 // App shell: network first so updates show up straight away, cache as the offline fallback.
 // Radar, model and map-tile requests always go to the network.
-const CACHE = 'nexthour-v29';
+const CACHE = 'wxnow-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -69,9 +69,9 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; } catch { d = { body: event.data && event.data.text() }; }
-  event.waitUntil(self.registration.showNotification(d.title || 'Next Hour', {
+  event.waitUntil(self.registration.showNotification(d.title || 'Wx Now', {
     body: d.body || '',
-    tag: d.tag || 'nexthour',
+    tag: d.tag || 'wxnow',
     renotify: true,
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',

@@ -1,4 +1,4 @@
-// The next-hour forecast pipeline, shared by the app and the alert server: radar nowcast,
+// The rain-in-the-wx-now forecast pipeline, shared by the app and the alert server: radar nowcast,
 // blending with the weather model, and the plain-English summary.
 
 import {

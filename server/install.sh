@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Installs the Next Hour alert server on a fresh Ubuntu 22.04/24.04 VM (built for Oracle Cloud
+# Installs the Wx Now alert server on a fresh Ubuntu 22.04/24.04 VM (built for Oracle Cloud
 # Always Free). Run as root:
-#   curl -fsSL https://raw.githubusercontent.com/jlblan2/next-hour/main/server/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/jlblan2/wx-now/main/server/install.sh | sudo bash
 # Safe to run again; it updates in place.
 set -euo pipefail
 
-REPO=https://github.com/jlblan2/next-hour.git
-APP=/opt/next-hour
-DATA=/var/lib/next-hour
+REPO=https://github.com/jlblan2/wx-now.git
+APP=/opt/wx-now
+DATA=/var/lib/wx-now
 
 echo "== Packages"
 export DEBIAN_FRONTEND=noninteractive
@@ -30,20 +30,20 @@ if ! command -v caddy >/dev/null; then
 fi
 
 echo "== App"
-id nexthour >/dev/null 2>&1 || useradd --system --home "$DATA" --shell /usr/sbin/nologin nexthour
+id wxnow >/dev/null 2>&1 || useradd --system --home "$DATA" --shell /usr/sbin/nologin wxnow
 mkdir -p "$DATA"
-chown nexthour:nexthour "$DATA"
+chown wxnow:wxnow "$DATA"
 if [ -d "$APP/.git" ]; then git -C "$APP" pull -q; else git clone -q "$REPO" "$APP"; fi
 (cd "$APP/server" && npm install --omit=dev --no-audit --no-fund -q)
 
-cat > /etc/systemd/system/next-hour.service <<EOF
+cat > /etc/systemd/system/wx-now.service <<EOF
 [Unit]
-Description=Next Hour rain alert server
+Description=Wx Now rain alert server
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=nexthour
+User=wxnow
 WorkingDirectory=$APP/server
 Environment=DATA_DIR=$DATA
 Environment=PORT=8787
@@ -57,21 +57,21 @@ EOF
 
 # Navy (FNMOC) forecasts: fetch each new NAVGEM / Navy wave run (checks hourly).
 mkdir -p "$DATA/navy"
-chown nexthour:nexthour "$DATA/navy"
-cat > /etc/systemd/system/next-hour-navy.service <<EOF
+chown wxnow:wxnow "$DATA/navy"
+cat > /etc/systemd/system/wx-now-navy.service <<EOF
 [Unit]
-Description=Fetch Navy NAVGEM and wave forecasts for Next Hour
+Description=Fetch Navy NAVGEM and wave forecasts for Wx Now
 After=network-online.target
 [Service]
 Type=oneshot
-User=nexthour
+User=wxnow
 Environment=NAVY_DIR=$DATA/navy
 ExecStart=/usr/bin/python3 $APP/server/navy/fetch_navy.py
 TimeoutStartSec=45min
 Nice=10
 EOF
 
-cat > /etc/systemd/system/next-hour-navy.timer <<EOF
+cat > /etc/systemd/system/wx-now-navy.timer <<EOF
 [Unit]
 Description=Check NOMADS hourly for new Navy forecasts
 [Timer]
@@ -83,21 +83,21 @@ EOF
 
 # Sailing weather: NOAA GFS + GFS-Wave for the East Coast and Gulf (checks hourly).
 mkdir -p "$DATA/passage"
-chown nexthour:nexthour "$DATA/passage"
-cat > /etc/systemd/system/next-hour-passage.service <<EOF
+chown wxnow:wxnow "$DATA/passage"
+cat > /etc/systemd/system/wx-now-passage.service <<EOF
 [Unit]
-Description=Fetch NOAA GFS and GFS-Wave sailing weather for Next Hour
+Description=Fetch NOAA GFS and GFS-Wave sailing weather for Wx Now
 After=network-online.target
 [Service]
 Type=oneshot
-User=nexthour
+User=wxnow
 Environment=PASSAGE_DIR=$DATA/passage
 ExecStart=/usr/bin/python3 $APP/server/passage/fetch_gfs.py
 TimeoutStartSec=45min
 Nice=10
 EOF
 
-cat > /etc/systemd/system/next-hour-passage.timer <<EOF
+cat > /etc/systemd/system/wx-now-passage.timer <<EOF
 [Unit]
 Description=Check NOMADS hourly for new GFS runs
 [Timer]
@@ -108,7 +108,7 @@ WantedBy=timers.target
 EOF
 
 # Pick up new releases from GitHub automatically (checks every 30 minutes).
-cat > /usr/local/bin/next-hour-update <<EOF
+cat > /usr/local/bin/wx-now-update <<EOF
 #!/usr/bin/env bash
 set -e
 cd $APP
@@ -117,23 +117,23 @@ git pull -q
 after=\$(git rev-parse HEAD)
 if [ "\$before" != "\$after" ]; then
   (cd server && npm install --omit=dev --no-audit --no-fund -q)
-  systemctl restart next-hour
+  systemctl restart wx-now
   echo "Updated \$before -> \$after"
 fi
 EOF
-chmod +x /usr/local/bin/next-hour-update
+chmod +x /usr/local/bin/wx-now-update
 
-cat > /etc/systemd/system/next-hour-update.service <<EOF
+cat > /etc/systemd/system/wx-now-update.service <<EOF
 [Unit]
-Description=Update Next Hour alert server from GitHub
+Description=Update Wx Now alert server from GitHub
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/next-hour-update
+ExecStart=/usr/local/bin/wx-now-update
 EOF
 
-cat > /etc/systemd/system/next-hour-update.timer <<EOF
+cat > /etc/systemd/system/wx-now-update.timer <<EOF
 [Unit]
-Description=Check GitHub for Next Hour updates
+Description=Check GitHub for Wx Now updates
 [Timer]
 OnBootSec=5min
 OnUnitActiveSec=30min
@@ -159,8 +159,8 @@ $HOST {
 EOF
 
 systemctl daemon-reload
-systemctl enable --now next-hour next-hour-update.timer next-hour-navy.timer next-hour-passage.timer
-systemctl restart next-hour
+systemctl enable --now wx-now wx-now-update.timer wx-now-navy.timer wx-now-passage.timer
+systemctl restart wx-now
 systemctl reload caddy || systemctl restart caddy
 
 echo
@@ -178,5 +178,5 @@ done
 echo
 echo "The server is installed, but https://$HOST is not reachable yet."
 echo "Most likely the Oracle network rules still block ports 80 and 443 (see the setup steps)."
-echo "Logs: journalctl -u caddy -n 50 ; journalctl -u next-hour -n 50"
+echo "Logs: journalctl -u caddy -n 50 ; journalctl -u wx-now -n 50"
 exit 1

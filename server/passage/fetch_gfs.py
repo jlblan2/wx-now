@@ -28,8 +28,8 @@ from pacific import pacific_mask  # noqa: E402 - Atlantic side only: Pacific cel
 
 NOMADS = 'https://nomads.ncep.noaa.gov'
 PROD = f'{NOMADS}/pub/data/nccf/com/gfs/prod'
-OUT = os.environ.get('PASSAGE_DIR', '/var/lib/next-hour/passage')
-UA = {'User-Agent': 'NextHour alert server (github.com/jlblan2/next-hour)'}
+OUT = os.environ.get('PASSAGE_DIR', '/var/lib/wx-now/passage')
+UA = {'User-Agent': 'WxNow alert server (github.com/jlblan2/wx-now)'}
 LAT0, LAT1, LON0, LON1 = 8.0, 47.0, -100.0, -58.0
 RES = 0.25
 STEPS = [int(x) for x in os.environ['PASSAGE_STEPS'].split(',')] if os.environ.get('PASSAGE_STEPS') else list(range(0, 169, 3))

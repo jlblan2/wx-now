@@ -1,4 +1,4 @@
-// Next Hour alert server. Every 5 minutes it runs the app's own next-hour forecast for each
+// Wx Now alert server. Every 5 minutes it runs the app's own rain-in-the-wx-now forecast for each
 // subscriber's saved places and last-known location, and sends a Web Push notification when
 // rain is about to start. It also serves a small JSON API the app uses to subscribe.
 
@@ -59,7 +59,7 @@ if (!vapid) {
   writeJson(VAPID_FILE, vapid);
   console.log('Generated new VAPID keys');
 }
-webpush.setVapidDetails('https://github.com/jlblan2/next-hour', vapid.publicKey, vapid.privateKey);
+webpush.setVapidDetails('https://github.com/jlblan2/wx-now', vapid.publicKey, vapid.privateKey);
 
 // subs: { [endpoint]: { subscription, places: [{name, lat, lon}], last: {lat, lon, at}, units, state: {} } }
 let subs = readJson(SUBS_FILE, {});
@@ -452,7 +452,7 @@ const routes = {
 
   'POST /api/test': async (b) => {
     if (!subs[b.endpoint]) throw new Error('Not subscribed');
-    const ok = await push(b.endpoint, { title: 'Next Hour', body: 'Test alert — alerts are working.', tag: 'test', url: './' });
+    const ok = await push(b.endpoint, { title: 'Wx Now', body: 'Test alert — alerts are working.', tag: 'test', url: './' });
     if (!ok) throw new Error('Push service rejected the test alert');
     return { ok: true };
   },
@@ -505,7 +505,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Next Hour alert server on 127.0.0.1:${PORT}, ${Object.keys(subs).length} subscriber(s)`);
+  console.log(`Wx Now alert server on 127.0.0.1:${PORT}, ${Object.keys(subs).length} subscriber(s)`);
   loop();
   stormLoop();
   marineLoop();

@@ -1,6 +1,6 @@
 """Pacific Ocean mask for the server's forecast grids.
 
-Next Hour covers the Atlantic side only (US East Coast, Gulf of America, Bahamas,
+Wx Now covers the Atlantic side only (US East Coast, Gulf of America, Bahamas,
 Caribbean, Bermuda). The polygon follows the Pacific coast of the Americas a little
 offshore, from Ecuador to British Columbia, so grid cells over the Pacific (including
 the Gulf of California) are blanked out of every product.

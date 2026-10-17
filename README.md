@@ -1,8 +1,8 @@
-# Next Hour
+# Wx Now
 
 Minute-by-minute rain forecast for the next hour, made by radar nowcasting:
 track storms on live radar and project them forward to your exact location. Installable on
-iPhone as a home-screen web app; see [How to add Next Hour to iPhone](How%20to%20add%20Next%20Hour%20to%20iPhone.txt).
+iPhone as a home-screen web app; see [How to add Wx Now to iPhone](How%20to%20add%20Wx%20Now%20to%20iPhone.txt).
 
 ## How it works
 
@@ -65,7 +65,7 @@ places and last-known location and sends a push about 15 minutes before rain (at
 per rain event per place). Install or update on the VM with:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/jlblan2/next-hour/main/server/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/jlblan2/wx-now/main/server/install.sh | sudo bash
 ```
 
 The VM pulls new commits from GitHub every 30 minutes. It also fetches each new U.S. Navy

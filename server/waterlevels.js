@@ -9,7 +9,7 @@ import { WL_STATIONS } from '../tidestations.js';
 
 const API = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
 const MDAPI = 'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations';
-const UA = { 'User-Agent': 'NextHour alert server (github.com/jlblan2/next-hour)' };
+const UA = { 'User-Agent': 'WxNow alert server (github.com/jlblan2/wx-now)' };
 const PAUSE_MS = 3000;
 const FLOOD_FETCHES_PER_SWEEP = 25;   // spread the one-off flood-level lookups over several sweeps
 let floodBudget = 0;
@@ -18,7 +18,7 @@ const getJson = (url) => fetch(url, { headers: UA }).then((r) => { if (!r.ok) th
 const ymd = (d) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
 const parseT = (t) => Date.parse(`${t.replace(' ', 'T')}:00Z`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const common = (id) => `station=${id}&datum=MLLW&units=english&time_zone=gmt&format=json&application=NextHour`;
+const common = (id) => `station=${id}&datum=MLLW&units=english&time_zone=gmt&format=json&application=WxNow`;
 
 const preds = new Map();    // id -> { at, points }
 let floods = new Map();     // id -> { at, minor, moderate, major } (ft above MLLW)

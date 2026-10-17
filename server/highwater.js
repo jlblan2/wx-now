@@ -21,7 +21,7 @@ export function gaugeFor(place) {
   return best && best.km <= NEAR_KM ? best : null;
 }
 
-const UA = { 'User-Agent': 'NextHour alert server (github.com/jlblan2/next-hour)' };
+const UA = { 'User-Agent': 'WxNow alert server (github.com/jlblan2/wx-now)' };
 const getJson = (url) => fetch(url, { headers: UA }).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); });
 const ymd = (d) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
 const parseT = (t) => Date.parse(`${t.replace(' ', 'T')}:00Z`);
@@ -50,7 +50,7 @@ async function floodLevels(id) {
 
 // Latest reading, the prediction at that moment, the trend and the flood levels.
 export async function gaugeNow(id) {
-  const common = `station=${id}&datum=MLLW&units=english&time_zone=gmt&format=json&application=NextHour`;
+  const common = `station=${id}&datum=MLLW&units=english&time_zone=gmt&format=json&application=WxNow`;
   const start = new Date(Date.now() - 3 * 3600000);
   const [obs, pred, flood] = await Promise.all([
     getJson(`${API}?product=water_level&date=recent&${common}`),

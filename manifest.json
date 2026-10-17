@@ -1,6 +1,6 @@
 {
-  "name": "Next Hour",
-  "short_name": "Next Hour",
+  "name": "Wx Now",
+  "short_name": "Wx Now",
   "description": "Minute-by-minute rain forecast for the next hour from live radar",
   "start_url": "./index.html",
   "display": "standalone",

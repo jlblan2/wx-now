@@ -5,7 +5,7 @@
 
 const LATEST = 'https://www.ndbc.noaa.gov/data/latest_obs/latest_obs.txt';
 const TABLE = 'https://www.ndbc.noaa.gov/data/stations/station_table.txt';
-const UA = { 'User-Agent': 'NextHour alert server (github.com/jlblan2/next-hour)' };
+const UA = { 'User-Agent': 'WxNow alert server (github.com/jlblan2/wx-now)' };
 const AREA = { lat0: 8, lat1: 47, lon0: -100, lon1: -58 };
 
 // Pacific side of Central America and Mexico, which falls inside the box above.

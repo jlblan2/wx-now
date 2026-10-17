@@ -1,10 +1,10 @@
-HOW TO ADD NEXT HOUR TO AN iPHONE
-=================================
+HOW TO ADD WX NOW TO AN iPHONE
+================================
 
-Next Hour is a web app. It isn't in the App Store. You add it to the Home Screen from
+Wx Now is a web app. It isn't in the App Store. You add it to the Home Screen from
 Safari, and after that it opens and works like a normal app.
 
-App address:  https://jlblan2.github.io/next-hour/
+App address:  https://jlblan2.github.io/wx-now/
 
 What you need
 -------------
@@ -16,15 +16,15 @@ What you need
 
 PART 1 - ADD THE APP TO THE HOME SCREEN
 ---------------------------------------
-1. Open Safari and go to:  https://jlblan2.github.io/next-hour/
+1. Open Safari and go to:  https://jlblan2.github.io/wx-now/
 2. When it asks to use your location, tap "Allow". The forecast is for where you
    are.
 3. Tap the Share button: the square with an arrow pointing up. It's at the bottom of
    the screen, or at the top on some iPhones and iPads.
 4. Scroll down the list and tap "Add to Home Screen".
    (If you don't see it, scroll to the bottom, tap "Edit Actions..." and add it.)
-5. Leave the name as "Next Hour" and tap "Add" in the top-right corner.
-6. A Next Hour icon (a blue raindrop on radar rings) appears on your Home Screen.
+5. Leave the name as "Wx Now" and tap "Add" in the top-right corner.
+6. A Wx Now icon (a blue raindrop on radar rings) appears on your Home Screen.
 
 From now on, ALWAYS open the app from this icon, not from Safari. Rain alerts only
 work when the app is opened from the Home Screen icon.
@@ -32,15 +32,15 @@ work when the app is opened from the Home Screen icon.
 
 PART 2 - ALLOW LOCATION
 -----------------------
-1. Open Next Hour from the Home Screen icon.
+1. Open Wx Now from the Home Screen icon.
 2. When it asks to use your location, tap "Allow While Using App".
    If you said no by mistake: Settings > Privacy & Security > Location Services >
-   Safari Websites > set to "While Using the App", then reopen Next Hour.
+   Safari Websites > set to "While Using the App", then reopen Wx Now.
 
 
 PART 3 - TURN ON RAIN ALERTS (works even when the app is closed)
 ---------------------------------------------------------------
-1. Open Next Hour from the Home Screen icon.
+1. Open Wx Now from the Home Screen icon.
 2. Tap the gear icon at the top right to open Settings.
 3. Under "Alerts when the app is closed", tap "Turn on".
 4. When iPhone asks to allow notifications, tap "Allow".
@@ -111,7 +111,7 @@ USING THE APP
 -------------
 Three tabs under the title keep the screen uncluttered; the app remembers the last
 one you used. Each tab has its own forecasts:
-  Local weather  - next-hour rain, the radar map, next 24 hours, 7 days, the NOAA vs
+  Local weather  - rain in the next hour, the radar map, next 24 hours, 7 days, the NOAA vs
                    Navy second opinion and current details.
   Hurricanes     - active Atlantic storms (or a note when there are none), NHC's
                    tropical weather outlook, the storm map and storm surge maps.
@@ -233,11 +233,11 @@ TROUBLESHOOTING
     https://129-80-206-181.sslip.io  in "Alert server address", then tap "Turn on".
 
 "Notifications are blocked":
-    iPhone Settings > Notifications > Next Hour > turn on "Allow Notifications".
+    iPhone Settings > Notifications > Wx Now > turn on "Allow Notifications".
     Then turn alerts off and on again in the app.
 
 "Open the app from its Home Screen icon":
-    You opened it in Safari. Close Safari and open the Next Hour icon instead.
+    You opened it in Safari. Close Safari and open the Wx Now icon instead.
 
 The app looks out of date after an update:
     Swipe it away to close it fully and reopen it. If that doesn't work, wait 10
@@ -247,19 +247,19 @@ No alerts arriving:
     Open Settings in the app and tap "Send test alert". If the test arrives, alerts
     work, and there has simply been no rain heading your way. If it doesn't arrive,
     check that Focus / Do Not Disturb is off and notifications are allowed for
-    Next Hour.
+    Wx Now.
 
 Setting up on a new or second iPhone:
     Repeat Parts 1 to 4 on that phone. Saved places are stored on each phone
     separately.
 
 
-Note: Next Hour is not an official forecast. For warnings, check the National Weather
+Note: Wx Now is not an official forecast. For warnings, check the National Weather
 Service.
 
 COVERAGE
 --------
-Next Hour covers the Atlantic side: the US East Coast, the Gulf of America, the
+Wx Now covers the Atlantic side: the US East Coast, the Gulf of America, the
 Bahamas, the Caribbean and Bermuda. Pacific storms, Pacific storm-surge maps and
 Pacific Ocean wind, wave and pressure data are not included. The rain forecast,
 hourly and 7-day forecasts still work anywhere in the US.

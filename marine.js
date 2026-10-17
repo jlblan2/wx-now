@@ -15,7 +15,7 @@ async function getJson(url) {
   try {
     const headers = { Accept: 'application/geo+json' };
     // NWS asks servers to identify themselves; browsers send their own User-Agent.
-    if (typeof window === 'undefined') headers['User-Agent'] = 'NextHour alert server (github.com/jlblan2/next-hour)';
+    if (typeof window === 'undefined') headers['User-Agent'] = 'WxNow alert server (github.com/jlblan2/wx-now)';
     const resp = await fetch(url, { signal: ctl.signal, headers });
     if (!resp.ok) throw new Error(`NWS ${resp.status}`);
     const data = await resp.json();
