@@ -98,7 +98,7 @@ async function refresh() {
     loadStorms();
     loadOutlook();
     loadMarine(loc);
-    if (state.tab === 'seas') loadTides(loc);
+    if (state.tab === 'seas') { loadTides(loc); loadWaterTemp(loc); }
     const { site, quality } = radarCoverage(loc);
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
     let radar = null, radarErr = null;
@@ -1101,6 +1101,21 @@ async function loadTides(at) {
   }
 }
 
+let waterMod = null;
+async function loadWaterTemp(at) {
+  const loc = at || state.picked || state.gps;
+  if (!loc) return;
+  try {
+    if (!waterMod) {
+      waterMod = await import('./seatemp.js');
+      waterMod.initWaterTemp({ metric, esc, server: alertServerUrl });
+    }
+    waterMod.showWaterTemp(loc);
+  } catch (e) {
+    $('wtNow').textContent = `Water temperature unavailable: ${e.message}`;
+  }
+}
+
 // ---------- tabs ----------
 
 const TAB_PANES = { local: ['tabLocal'], storms: ['tabStorms', 'surge'], seas: ['tabSeas'] };
@@ -1148,7 +1163,7 @@ function setTab(tab, { remember = true } = {}) {
     $('wavesSel').value = 'on';
     setWaves(true);
   }
-  if (tab === 'seas') { passageShown(); loadTides(); }
+  if (tab === 'seas') { passageShown(); loadTides(); loadWaterTemp(); }
   window.scrollTo({ top: 0 });
 }
 
@@ -1258,7 +1273,7 @@ function bindUi() {
   });
   $('settingsBtn').addEventListener('click', () => { $('settings').hidden = !$('settings').hidden; });
   $('units').value = state.units;
-  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); if (state.tab === 'seas') loadTides(); });
+  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); if (state.tab === 'seas') { loadTides(); loadWaterTemp(); } });
   $('alerts').checked = state.alerts;
   $('alerts').addEventListener('change', (e) => setAlerts(e.target.checked));
   window.addEventListener('resize', () => state.result && drawChart(state.result.series));

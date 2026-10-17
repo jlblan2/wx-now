@@ -7,7 +7,7 @@ import path from 'node:path';
 // Same order and scales as fetch_gfs.py writes.
 const VARS = [
   ['u10', 0.1], ['v10', 0.1], ['gust', 0.1], ['mslp', 10], ['prate', 0.01],
-  ['vis', 10], ['swh', 0.01], ['per', 0.1], ['dir', 1],
+  ['vis', 10], ['swh', 0.01], ['per', 0.1], ['dir', 1], ['sst', 0.01],
 ];
 const REGION = { lat0: 8, lat1: 47, lon0: -100, lon1: -58 };   // must match fetch_gfs.py
 const MISSING = -32768;

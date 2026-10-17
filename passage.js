@@ -1,3 +1,5 @@
+import { loadBuoys, fmtTemp, cToF } from './seatemp.js';
+
 // Sailing weather: Forecast maps for the US East Coast, the Gulf
 // of America, the Bahamas, the Caribbean and Bermuda. Wind (speed colours + barbs in knots), waves (height + direction), pressure
 // (isobars + rain) and visibility, 3-hourly over 7 days, from NOAA GFS / GFS-Wave or the
@@ -29,15 +31,19 @@ const RAMPS = {
   rain: [[0.1, [120, 170, 255, 110]], [0.5, [70, 130, 245, 160]], [2, [40, 190, 90, 190]], [5, [240, 220, 50, 205]],
     [10, [245, 120, 30, 215]], [25, [220, 40, 160, 225]]],                                     // mm/h
   vis: [[0, [220, 40, 40, 200]], [0.5, [240, 120, 40, 185]], [1, [240, 200, 50, 160]], [3, [200, 200, 200, 90]], [5, [200, 200, 200, 0]]], // nm
+  sst: [[-2, [120, 60, 200, 200]], [5, [60, 80, 220, 200]], [10, [40, 140, 230, 200]], [15, [40, 200, 200, 200]], [20, [90, 210, 90, 205]],
+    [24, [235, 225, 60, 210]], [26, [250, 165, 40, 215]], [28, [240, 80, 40, 220]], [30, [200, 30, 60, 225]], [32, [190, 40, 190, 230]]], // deg C
 };
 const LEGENDS = {
   wind: { label: 'Wind, knots', stops: [0, 5, 10, 15, 20, 25, 30, 35, 45, 60] },
   waves: { label: 'Waves', stops: [0, 2, 4, 6, 8, 12, 16, 25] },
   pressure: { label: 'Rain, mm/h · white lines: pressure (mb)', stops: [0.1, 0.5, 2, 5, 10, 25], ramp: 'rain' },
   vis: { label: 'Visibility, nautical miles', stops: [0, 0.5, 1, 3, 5] },
+  sst: { label: 'Sea temperature', stops: [5, 10, 15, 20, 24, 26, 28, 30] },
 };
 
 const KT = 1.94384, FT = 3.28084, NM = 1 / 1852;
+let buoyLayer = null;
 let opts, map, field, vectors, meta = null, model = 'noaa', product = 'wind', stepIdx = 0, playing = null, inited = false;
 const cache = new Map();
 const store = {
@@ -63,7 +69,7 @@ async function loadStep(m, i) {
   const key = `${m.model}/${m.cycle}/${m.steps[i]}`;
   if (!cache.has(key)) {
     // The grid size in the query keeps cached files from an older area layout from being reused.
-    const p = fetch(`${opts.server()}/api/passage/${m.model}/${m.cycle}/${String(m.steps[i]).padStart(3, '0')}.bin?g=${m.lat0},${m.nlat}x${m.nlon}`)
+    const p = fetch(`${opts.server()}/api/passage/${m.model}/${m.cycle}/${String(m.steps[i]).padStart(3, '0')}.bin?g=${m.lat0},${m.nlat}x${m.nlon}x${m.vars.length}`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); })
       .then((b) => new Int16Array(b));
     cache.set(key, p);
@@ -113,6 +119,7 @@ function drawField(m, g) {
     waves: (fr, fc) => g.at('swh', fr, fc) * FT,
     pressure: (fr, fc) => g.at('prate', fr, fc),
     vis: (fr, fc) => g.at('vis', fr, fc) * NM,
+    sst: (fr, fc) => g.at('sst', fr, fc),
   }[product];
   const ramp = RAMPS[product === 'pressure' ? 'rain' : product];
   for (let py = 0; py < H; py++) {
@@ -249,6 +256,46 @@ function drawVectors(m, g) {
   vectors = L.layerGroup(layers).addTo(map);
 }
 
+// ---------- buoy water temperatures on the sea-temperature chart ----------
+
+function buoyText(b) {
+  const metric = opts.metric();
+  const bits = [`water ${fmtTemp(b.wtmp, metric)}`];
+  if (b.atmp !== null) bits.push(`air ${fmtTemp(b.atmp, metric)}`);
+  if (b.wvht !== null) bits.push(`waves ${metric ? `${b.wvht.toFixed(1)} m` : `${Math.round(b.wvht * FT)} ft`}${b.dpd !== null ? ` at ${Math.round(b.dpd)} s` : ''}`);
+  if (b.wspd !== null) bits.push(`wind ${b.wdir !== null ? `${opts.compass(b.wdir)} ` : ''}${Math.round(b.wspd * KT)} kt`);
+  const t = new Date(b.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `${b.name || 'Station'} (${b.id}), measured ${t}: ${bits.join(' · ')}`;
+}
+
+async function drawBuoys() {
+  let d;
+  try { d = await loadBuoys(opts.server()); } catch { return; }
+  if (product !== 'sst') return;
+  if (buoyLayer) buoyLayer.remove();
+  const metric = opts.metric(), labels = map.getZoom() >= 6, layers = [];
+  for (const b of d.stations) {
+    if (b.wtmp === null) continue;
+    const c = rgba(RAMPS.sst, b.wtmp) || RAMPS.sst[0][1];
+    const marker = L.circleMarker([b.lat, b.lon], {
+      radius: 5, color: '#0a1220', weight: 1.5, fillColor: `rgb(${c[0]},${c[1]},${c[2]})`, fillOpacity: 1,
+    });
+    marker.on('click', (e) => { L.DomEvent.stopPropagation(e); $('pwInfo').textContent = buoyText(b); });
+    layers.push(marker);
+    if (labels) {
+      layers.push(L.marker([b.lat, b.lon], {
+        interactive: false,
+        icon: L.divIcon({ className: 'level-label', html: `${Math.round(metric ? b.wtmp : cToF(b.wtmp))}°`, iconSize: [30, 14], iconAnchor: [-5, 7] }),
+      }));
+    }
+  }
+  buoyLayer = L.layerGroup(layers).addTo(map);
+}
+
+function clearBuoys() {
+  if (buoyLayer) { buoyLayer.remove(); buoyLayer = null; }
+}
+
 // ---------- measured water levels (all gauges, from the alert server) ----------
 
 // Colour by how far the water is above (+) or below (-) the predicted tide, in feet.
@@ -338,6 +385,14 @@ function legend() {
     return;
   }
   const l = LEGENDS[product], ramp = RAMPS[l.ramp || product];
+  if (product === 'sst') {
+    const metric = opts.metric();
+    $('pwLegend').innerHTML = l.stops.map((s) => {
+      const c = rgba(ramp, s);
+      return `<span><i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i>${metric ? s : Math.round(cToF(s))}</span>`;
+    }).join('') + `<span>Sea temperature, ${metric ? '°C' : '°F'} · dots: buoys measured now</span>`;
+    return;
+  }
   const wavesUnit = opts.metric() ? 'm' : 'ft';
   $('pwLegend').innerHTML = l.stops.map((s, i) => {
     const c = rgba(ramp, s + 1e-6) || ramp[0][1];
@@ -350,9 +405,13 @@ let drawToken = 0;
 async function draw() {
   if (product === 'levels') { stopPlay(); return drawLevels(); }
   clearLevels();
+  if (product === 'sst') drawBuoys(); else clearBuoys();
   if (!meta) return;
-  const m = meta[model];
-  if (!m) { $('pwLabel').textContent = `${model === 'navy' ? 'Navy' : 'NOAA'} data not available yet`; return; }
+  // The Navy files carry no sea temperature, so that chart always uses NOAA GFS.
+  const src = product === 'sst' ? 'noaa' : model;
+  const m = meta[src];
+  if (!m) { $('pwLabel').textContent = `${src === 'navy' ? 'Navy' : 'NOAA'} data not available yet`; return; }
+  if (src === 'noaa' && !m.vars.some((v) => v.name === 'sst') && product === 'sst') { $('pwInfo').textContent = 'Sea temperature arrives with the next NOAA model run.'; }
   stepIdx = Math.max(0, Math.min(stepIdx, m.steps.length - 1));
   $('pwSlider').max = m.steps.length - 1;
   $('pwSlider').value = stepIdx;
@@ -397,6 +456,8 @@ function showPoint(ll) {
   if (!Number.isNaN(r)) parts.push(r >= 0.1 ? `rain ${r.toFixed(1)} mm/h` : 'dry');
   const vis = g.at('vis', fr, fc);
   if (!Number.isNaN(vis)) parts.push(`visibility ${vis * NM >= 10 ? '10+' : (vis * NM).toFixed(1)} nm`);
+  const sst = g.at('sst', fr, fc);
+  if (!Number.isNaN(sst)) parts.push(`sea ${fmtTemp(sst, opts.metric())}`);
   $('pwInfo').textContent = parts.length
     ? `${ll.lat.toFixed(2)}°N ${Math.abs(ll.lng).toFixed(2)}°W, ${$('pwLabel').textContent} (${m.model === 'navy' ? 'Navy' : 'NOAA'}): ${parts.join(' · ')}`
     : 'Outside the forecast area (8–47°N, 100–58°W).';
@@ -436,7 +497,7 @@ async function start() {
   }
   selectRegion(region);
   map.on('moveend', () => { if (product !== 'levels' && state.g) drawVectors(state.m, state.g); });
-  map.on('zoomend', () => { if (product === 'levels') drawLevels(); });
+  map.on('zoomend', () => { if (product === 'levels') drawLevels(); else if (product === 'sst') drawBuoys(); });
   map.on('click', (e) => { if (product !== 'levels') showPoint(e.latlng); });
   try {
     const r = await fetch(`${server}/api/passage/meta`);
@@ -515,5 +576,6 @@ export function passageShown() {
 export function passageUnitsChanged() {
   if (!inited) return;
   legend();
+  if (product === 'sst') drawBuoys();
   if (state.tap) showPoint(state.tap);
 }

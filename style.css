@@ -248,6 +248,10 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .outlook .none { color: var(--accent-2, #2ec4b6); font-weight: 600; }
 .outlook-x { background: none; border: none; font: 700 18px/22px -apple-system, system-ui, sans-serif; text-align: center; text-shadow: 0 0 3px #000, 0 0 3px #000; }
 
+/* water temperature */
+.wt-now { margin: 4px 0 6px; font-size: 14px; }
+.wt-id, .wt-where { color: var(--muted); font-weight: 400; font-size: 12px; }
+
 /* tides */
 .tides select { width: 100%; padding: 8px; margin-bottom: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
 .tide-now { margin: 4px 0 6px; font-size: 14px; }

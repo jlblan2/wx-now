@@ -48,6 +48,7 @@ VARS = [
     ('swh', 'wave', 'swh', None, 0.01),
     ('per', 'wave', 'perpw', None, 0.1),
     ('dir', 'wave', 'dirpw', None, 1.0),
+    ('sst', 'gfs', 't', None, 0.01),         # surface temperature over water, deg C
 ]
 
 
@@ -98,7 +99,7 @@ def filter_url(cycle, h, source):
     box = {'subregion': '', 'toplat': LAT1, 'bottomlat': LAT0, 'leftlon': LON0 % 360, 'rightlon': LON1 % 360}
     if source == 'gfs':
         q = {'dir': f'/gfs.{day}/{hh}/atmos', 'file': f'gfs.t{hh}z.pgrb2.0p25.f{h:03d}',
-             'var_UGRD': 'on', 'var_VGRD': 'on', 'var_GUST': 'on', 'var_PRMSL': 'on', 'var_PRATE': 'on', 'var_VIS': 'on',
+             'var_UGRD': 'on', 'var_VGRD': 'on', 'var_GUST': 'on', 'var_PRMSL': 'on', 'var_PRATE': 'on', 'var_VIS': 'on', 'var_TMP': 'on',
              'lev_10_m_above_ground': 'on', 'lev_mean_sea_level': 'on', 'lev_surface': 'on', **box}
         return f'{NOMADS}/cgi-bin/filter_gfs_0p25.pl?{urllib.parse.urlencode(q)}'
     q = {'dir': f'/gfs.{day}/{hh}/wave/gridded', 'file': f'gfswave.t{hh}z.global.0p25.f{h:03d}.grib2',
@@ -144,6 +145,8 @@ def read(path, source):
                     grid[r0:r0 + rr, c0:c0 + cc] = vals[:rr, :cc]
                     if name == 'prate':
                         grid *= 3600.0        # kg m-2 s-1 -> mm/h
+                    if name == 'sst':
+                        grid -= 273.15        # K -> deg C
                     out[name] = grid
             finally:
                 ec.codes_release(h)
@@ -187,6 +190,8 @@ def main():
                 pac = pacific_mask(lats, lons, ~np.isnan(fields['swh']))
             for g in fields.values():
                 g[pac if pac is not None else pacific_mask(lats, lons)] = np.nan
+            if 'sst' in fields and 'swh' in fields:
+                fields['sst'][np.isnan(fields['swh'])] = np.nan   # water only
             data = np.full((len(VARS), NLAT, NLON), MISSING, np.int16)
             for vi, (name, *_rest, scale) in enumerate(VARS):
                 g = fields.get(name)

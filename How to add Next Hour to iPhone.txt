@@ -107,7 +107,8 @@ one you used. Each tab has its own forecasts:
                    Navy second opinion and current details.
   Hurricanes     - active Atlantic storms (or a note when there are none), NHC's
                    tropical weather outlook, the storm map and storm surge maps.
-  Seas & swell   - your marine zone forecast, tides, the sailing weather charts and
+  Seas & swell   - your marine zone forecast, tides, water temperature, the passage
+                   weather charts and
                    the Navy wave map.
 Under the tabs is a row of places: "My location" (your GPS) and each saved place.
 Tap one to switch the whole app - forecast, radar, marine zone and tides - to that
@@ -187,6 +188,10 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   prediction - the effect of wind, pressure and storm surge. When the gauge is the
   station itself, the chart adds the measured level as an orange line over the blue
   predicted curve. Subordinate stations borrow the nearest gauge within 30 nm.
+- "Water temperature" (Seas & swell) shows the sea surface temperature at your spot
+  with its range over the next 5 days (Open-Meteo marine model), then the nearest NOAA
+  buoys and coastal stations within 250 nm that measure water temperature: distance
+  and direction, how long ago they reported, water and air temperature, waves and wind.
 - "Sailing weather" is a sailing weather chart for the US East Coast, the Gulf
   of America, the Bahamas, the Caribbean and Bermuda. Pick a region (Gulf, Florida,
   Bahamas, Caribbean, Western or Eastern Caribbean, Bermuda, the East Coast to Bermuda
@@ -197,6 +202,10 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
     Waves - wave height with arrows showing which way the waves are travelling
     Pressure & rain - isobars every 4 mb with rain shading
     Visibility - fog and poor-visibility areas
+    Sea temperature - NOAA GFS sea surface temperature (always NOAA; the Navy files
+           have none), with a dot at every buoy measuring water temperature, labelled
+           in degrees when zoomed in. Tap a dot for its water and air temperature,
+           waves and wind.
     Water levels (measured now) - a dot at each NOAA water level gauge, coloured and
            labelled by how far the water is above (+) or below (-) the predicted tide
            (orange/red = high water, blue = low). A red ring means the gauge is at or

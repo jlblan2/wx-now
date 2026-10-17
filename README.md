@@ -38,6 +38,7 @@ chance of precipitation, wind and gusts).
 | `compare.js` | Second opinion: NOAA GFS / GFS-Wave vs Navy NAVGEM / WAVEWATCH III, daily, with disagreements flagged |
 | `passage.js` | Sailing weather charts (wind barbs, waves, isobars + rain, visibility) for the East Coast, Gulf, Bahamas, Caribbean and Bermuda |
 | `outlook.js` | NHC Atlantic Tropical Weather Outlook: text (TWO AT) and areas to watch with 2/7-day chances |
+| `seatemp.js` | Water temperature card: Open-Meteo marine sea surface temperature at the spot and the nearest NDBC buoys (via `/api/buoys`) |
 | `tides.js`, `tidestations.js` | NOAA CO-OPS tide predictions (2,301 Atlantic-side stations) and measured water levels from the nearest of 220 gauges, loaded only in Seas & swell |
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
@@ -72,11 +73,12 @@ The VM pulls new commits from GitHub every 30 minutes. It also fetches each new 
 WAVEWATCH III ensemble control member, 0-120 h, cut to 0-60N 130-50W, served to the app
 at `/api/navy/*` for the wave map and the second-opinion card. For the Sailing weather charts it
 also fetches each GFS run (`server/passage/fetch_gfs.py`, NOMADS grib filter: 10 m wind, gusts,
-pressure, rain rate, visibility, GFS-Wave height/period/direction; 8-47N 100-58W, 0.25 deg,
+pressure, rain rate, visibility, sea surface temperature, GFS-Wave height/period/direction; 8-47N 100-58W, 0.25 deg,
 3-hourly to 168 h), served gzipped at `/api/passage/*` alongside the Navy run in the same layout. Measured water
 levels for all 220 Atlantic-side NOAA gauges come from a gentle 30-minute sweep
 (`server/waterlevels.js`, 3 s between requests: NOAA's API gateway returns 403 on bursts)
-and are served at `/api/waterlevels`. Status: `https://<server>/api/status`.
+and are served at `/api/waterlevels`. NDBC buoy reports (`server/buoys.js`, one
+`latest_obs.txt` download every 30 minutes, Pacific excluded) are served at `/api/buoys`. Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
 ## Coverage

@@ -18,6 +18,7 @@ import { tropicalOutlook } from '../outlook.js';
 import { outlookAreas, outlookEvents, outlookSends } from './outlookalerts.js';
 import { gaugeFor, gaugeNow, decideHighWater, highWaterMessage } from './highwater.js';
 import { initWaterLevels, sweepWaterLevels, waterLevelSnapshot } from './waterlevels.js';
+import { refreshBuoys, buoySnapshot } from './buoys.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
@@ -263,6 +264,19 @@ async function waterLevelLoop() {
   setTimeout(waterLevelLoop, WATERLEVEL_SWEEP_MS);
 }
 
+// NDBC buoys: one file with every station's latest report, every 30 minutes.
+async function buoyLoop() {
+  try {
+    const s = await refreshBuoys();
+    status.buoys = s.stations.length;
+    status.lastBuoyError = null;
+  } catch (e) {
+    status.lastBuoyError = e.message;
+    console.error('Buoy refresh failed:', e.message);
+  }
+  setTimeout(buoyLoop, 30 * 60000);
+}
+
 async function loop() {
   try {
     await check();
@@ -315,6 +329,9 @@ const routes = {
 
   // Navy (FNMOC) forecasts: run info, and the series at one point.
   'GET /api/navy/meta': async () => navyMeta(NAVY_DIR),
+  // Latest NDBC buoy / coastal station reports (water temperature, waves, wind).
+  'GET /api/buoys': async () => buoySnapshot(),
+
   // Latest measured water level at every Atlantic-side gauge.
   'GET /api/waterlevels': async () => waterLevelSnapshot(),
 
@@ -454,5 +471,6 @@ server.listen(PORT, '127.0.0.1', () => {
   stormLoop();
   marineLoop();
   highWaterLoop();
+  buoyLoop();
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });
