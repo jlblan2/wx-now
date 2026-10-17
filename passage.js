@@ -305,7 +305,9 @@ async function drawLevels() {
     });
     marker.on('click', (e) => { L.DomEvent.stopPropagation(e); $('pwInfo').textContent = levelText(g); });
     layers.push(marker);
-    if (g.above !== null && Math.abs(g.above) >= 0.15) {
+    // Zoomed out, label only the gauges a foot or more off prediction so labels don't pile up.
+    const labelMin = map.getZoom() >= 7 ? 0.15 : 1.0;
+    if (g.above !== null && Math.abs(g.above) >= labelMin) {
       const lbl = `${g.above > 0 ? '+' : '−'}${Math.abs(g.above * unit).toFixed(1)}`;
       layers.push(L.marker([g.lat, g.lon], {
         interactive: false,
@@ -433,7 +435,8 @@ async function start() {
     }
   }
   selectRegion(region);
-  map.on('moveend', () => { if (state.g) drawVectors(state.m, state.g); });
+  map.on('moveend', () => { if (product !== 'levels' && state.g) drawVectors(state.m, state.g); });
+  map.on('zoomend', () => { if (product === 'levels') drawLevels(); });
   map.on('click', (e) => { if (product !== 'levels') showPoint(e.latlng); });
   try {
     const r = await fetch(`${server}/api/passage/meta`);
