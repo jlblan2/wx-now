@@ -231,3 +231,33 @@ run('wind: event in the next 24 h, once, stronger by 10 kt, re-arm after easing'
 });
 
 console.log('All wind tests passed');
+
+// ---------- extreme tide alerts ----------
+import { findExtremes, decideTides, tideMessage } from './tidealerts.js';
+
+run('tides: extreme highs and lows in the next 48 h, one alert each, no repeats', () => {
+  const H = 3600000, now = Date.UTC(2026, 9, 17, 16);
+  const tides = [
+    { t: now + 2 * H, v: 7.2, high: true }, { t: now + 8 * H, v: 0.3, high: false },
+    { t: now + 14 * H, v: 8.9, high: true }, { t: now + 20 * H, v: -1.3, high: false },
+    { t: now + 27 * H, v: 9.4, high: true }, { t: now + 33 * H, v: -0.4, high: false },
+    { t: now + 60 * H, v: 10.5, high: true },
+  ];
+  const ex = findExtremes(tides, 8.26, 0.5, { minor: 9.3 }, now);
+  assert.deepEqual(ex.highs.map((x) => x.v), [8.9, 9.4], 'over MHHW + 0.5, within 48 h');
+  assert.deepEqual(ex.lows.map((x) => x.v), [-1.3]);
+  const st = {};
+  const a = decideTides(st, ex, now);
+  assert.deepEqual(a.map((x) => x.kind), ['high', 'low']);
+  assert.equal(decideTides(st, ex, now + 3 * H).length, 0, 'same tides, no repeat');
+  const ex2 = findExtremes([...tides, { t: now + 39 * H, v: 9.6, high: true }], 8.26, 0.5, { minor: 9.3 }, now + 3 * H);
+  assert.equal(decideTides(st, ex2, now + 3 * H).length, 0, 'new extreme within a day waits');
+  assert.equal(decideTides(st, ex2, now + 21 * H).length, 1, 'next day it alerts');
+  const m = tideMessage('high', ex.highs, { name: 'Fernandina Beach' }, 8.26, { minor: 9.3 }, 'Home', false, 'America/New_York');
+  assert.equal(m.title, 'Extreme high tide · Fernandina Beach (Home)');
+  assert.equal(m.body, '9.4 ft at Sun 3:00 PM, 1.1 ft above a normal high (8.3 ft) (2 highs like this in the next 2 days). At or above the minor flooding level. Wind and storms can push it higher.');
+  const l = tideMessage('low', ex.lows, { name: 'Fernandina Beach' }, 8.26, null, '', false, 'America/New_York');
+  assert.equal(l.body, '-1.3 ft at Sun 8:00 AM, 1.3 ft below a normal low. Watch depths at docks, channels and inlets.');
+});
+
+console.log('All tide tests passed');

@@ -64,7 +64,7 @@ async function enable() {
     if (sub && store.get('pushKey', '') !== key) { await sub.unsubscribe(); sub = null; }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
     const here = currentSpot();
-    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true), highWaterFt: +store.get('pushHighWater', '1'), ...waterTempPrefs(), windKt: +store.get('pushWind', '25') });
+    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true), highWaterFt: +store.get('pushHighWater', '1'), ...waterTempPrefs(), windKt: +store.get('pushWind', '25'), tideFt: +store.get('pushTide', '1') });
     store.set('pushKey', key);
     store.set('pushOn', true);
     lastSent = here ? { ...here, at: Date.now() } : null;
@@ -125,6 +125,16 @@ export async function syncWaterTemp() {
     if (sub) await api('/api/watertemp', { endpoint: sub.endpoint, f: p.waterTempF, metric: p.metric });
   } catch (e) {
     setMsg(`Could not update water temperature alerts on the alert server: ${e.message}`, true);
+  }
+}
+
+async function syncTides() {
+  if (!pushEnabled()) return;
+  try {
+    const sub = await subscription();
+    if (sub) await api('/api/tides', { endpoint: sub.endpoint, ft: +store.get('pushTide', '1') });
+  } catch (e) {
+    setMsg(`Could not update tide alerts on the alert server: ${e.message}`, true);
   }
 }
 
@@ -226,6 +236,8 @@ export function initPush(getSpot) {
   });
   $('pushHighWater').value = store.get('pushHighWater', '1');
   $('pushHighWater').addEventListener('change', (e) => { store.set('pushHighWater', e.target.value); syncHighWater(); });
+  $('pushTide').value = store.get('pushTide', '1');
+  $('pushTide').addEventListener('change', (e) => { store.set('pushTide', e.target.value); syncTides(); });
   $('pushWind').value = store.get('pushWind', '25');
   $('pushWind').addEventListener('change', (e) => { store.set('pushWind', e.target.value); syncWind(); });
   $('pushWaterTemp').value = store.get('pushWaterTemp', '3');

@@ -29,7 +29,7 @@ const parseT = (t) => Date.parse(`${t.replace(' ', 'T')}:00Z`);
 const floodCache = new Map();   // id -> { at, levels }
 
 // NOAA flood levels converted to feet above MLLW (NWS levels preferred, else NOS).
-async function floodLevels(id) {
+export async function floodLevels(id) {
   const hit = floodCache.get(id);
   if (hit && Date.now() - hit.at < 24 * 3600000) return hit.levels;
   let levels = null;

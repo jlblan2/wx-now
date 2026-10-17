@@ -81,7 +81,9 @@ and are served at `/api/waterlevels`. NDBC buoy reports (`server/buoys.js`, one
 `latest_obs.txt` download every 30 minutes, Pacific excluded) are served at `/api/buoys`. After each refresh `server/watertemp.js` alerts subscribers when the water at the buoy
 nearest a watched place has warmed or cooled by their chosen amount (`POST /api/watertemp`). Every hour `server/windalerts.js` checks the Open-Meteo hourly wind forecast for
 each saved place and alerts when sustained wind in the next 24 hours reaches the subscriber's
-threshold (`POST /api/wind`, knots). Status: `https://<server>/api/status`.
+threshold (`POST /api/wind`, knots). Every 3 hours `server/tidealerts.js` checks NOAA's predicted highs and
+lows for the next 48 hours at the tide station nearest each saved place and alerts on highs above
+MHHW (or the minor flood level) and lows below MLLW by the subscriber's margin (`POST /api/tides`). Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
 ## Coverage

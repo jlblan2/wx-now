@@ -82,6 +82,15 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Extreme tide alerts: Settings > "Extreme tide alerts" (1 ft by default; also 0.5, 1.5,
+2 ft, or Off). Every 3 hours the server reads NOAA's tide predictions for the next 2 days
+at the tide station nearest each saved place (within 30 nm). You get an alert ahead of time
+when a high tide is predicted to run that far above a normal high (Mean Higher-High Water)
+or to reach the minor flooding level, for example king tides; or when a low tide is
+predicted that far below a normal low (Mean Lower-Low Water), which matters for depths at
+docks, channels and inlets. At most one alert of each kind per station a day. These are
+predictions from the moon and sun only; wind and storms add to them (see High water alerts).
+
 Wind forecast alerts: Settings > "Wind forecast alerts" (25 kt by default; also 15, 20,
 30 kt, 34 kt gale, 48 kt storm, or Off). For each saved place the server checks the hourly
 wind forecast every hour. You get an alert when sustained wind in the next 24 hours is

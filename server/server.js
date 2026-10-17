@@ -22,6 +22,8 @@ import { refreshBuoys, buoySnapshot } from './buoys.js';
 import { buoyFor, decideWaterTemp, waterTempMessage } from './watertemp.js';
 import { windForecast, windEvent, decideWind, windMessage } from './windalerts.js';
 import { zoneOf } from './zones.js';
+import { tideStationFor, predictedExtremes, findExtremes, decideTides, tideMessage } from './tidealerts.js';
+import { floodLevels } from './highwater.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
@@ -305,6 +307,50 @@ async function windLoop() {
   setTimeout(windLoop, WIND_CHECK_MS);
 }
 
+// Extreme tide alerts for saved places: predicted highs and lows for the next 48 hours,
+// checked every 3 hours. Predictions are shared between subscribers using the same station.
+const TIDE_CHECK_MS = 3 * 3600000;
+
+async function tideLoop() {
+  try {
+    const stations = new Map(), preds = new Map();
+    let places = 0;
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const margin = sub.tideFt ?? 1.0;
+      if (!(margin > 0)) continue;
+      const st = sub.tides = sub.tides || {};
+      const seen = new Set();
+      for (const p of (sub.places || []).filter(validPoint)) {
+        const key = `${p.lat.toFixed(2)},${p.lon.toFixed(2)}`;
+        if (!stations.has(key)) stations.set(key, await tideStationFor(p).catch(() => null));
+        const s = stations.get(key);
+        if (!s || seen.has(s.id)) continue;   // one alert per station even if two places share it
+        seen.add(s.id);
+        if (!preds.has(s.id)) {
+          preds.set(s.id, await predictedExtremes(s.id).then(async (tides) => ({ tides, flood: await floodLevels(s.id).catch(() => null) })).catch(() => null));
+        }
+        const pr = preds.get(s.id);
+        if (!pr) continue;
+        places++;
+        const ex = findExtremes(pr.tides, s.mhhw, margin, pr.flood);
+        for (const a of decideTides(st[s.id] = st[s.id] || {}, ex)) {
+          const msg = tideMessage(a.kind, a.list, s, s.mhhw, pr.flood, p.name, sub.metric, await zoneOf(p.lat, p.lon));
+          console.log(`Tide: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `tide-${a.kind}-${s.id}`, url: `./?lat=${p.lat.toFixed(4)}&lon=${p.lon.toFixed(4)}&tab=seas` });
+        }
+      }
+    }
+    saveSubs();
+    status.tidePlaces = places;
+    status.lastTideCheck = new Date().toISOString();
+    status.lastTideError = null;
+  } catch (e) {
+    status.lastTideError = e.message;
+    console.error('Tide check failed:', e.message);
+  }
+  setTimeout(tideLoop, TIDE_CHECK_MS);
+}
+
 // Water temperature alerts: change at the buoy nearest each watched place, checked after
 // every buoy refresh.
 async function waterTempAlerts(stations) {
@@ -425,6 +471,8 @@ const routes = {
       waterTemp: prev.waterTemp || {},
       windKt: b.windKt === undefined ? prev.windKt ?? 25 : cleanKt(b.windKt),
       wind: prev.wind || {},
+      tideFt: b.tideFt === undefined ? prev.tideFt ?? 1.0 : cleanFt(b.tideFt),
+      tides: prev.tides || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -455,6 +503,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, ft } — extreme tide margin in feet beyond the normal range (0 = off).
+  'POST /api/tides': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.tideFt = cleanFt(b.ft);
     saveSubs();
     return { ok: true };
   },
@@ -564,5 +621,6 @@ server.listen(PORT, '127.0.0.1', () => {
   highWaterLoop();
   buoyLoop();
   windLoop();
+  setTimeout(tideLoop, 90 * 1000);   // after the start-up NOAA requests
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });
