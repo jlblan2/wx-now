@@ -78,13 +78,17 @@ opens the Hurricanes tab.
 
 PART 4 - SAVE PLACES (optional)
 -------------------------------
-Save places such as Home or the marina to get alerts there wherever you are.
+Save places such as Home or the marina to switch to them with one tap, and to get
+alerts there wherever you are.
 1. Get the forecast showing the place you want:
      - For where you are now, just open the app.
-     - For somewhere else, tap that spot on the map.
-2. Open Settings (gear icon). Under "Saved places", type a name (for example "Home").
+     - For somewhere else, tap that spot on the Local weather map.
+2. Tap the + button at the end of the place row under the tabs (or open Settings,
+   the gear icon). Under "Saved places", type a name (for example "Home").
 3. Tap "Save this spot".
-4. To remove a place, tap "Remove" next to it.
+4. Your saved places appear as buttons under the tabs. Tap one to switch the whole
+   app to it; tap "My location" to go back to your GPS position.
+5. To remove a place, tap "Remove" next to it in Settings.
 You can save up to 10 places.
 
 
