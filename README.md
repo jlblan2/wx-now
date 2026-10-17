@@ -73,7 +73,10 @@ WAVEWATCH III ensemble control member, 0-120 h, cut to 0-60N 130-50W, served to 
 at `/api/navy/*` for the wave map and the second-opinion card. For the Sailing weather charts it
 also fetches each GFS run (`server/passage/fetch_gfs.py`, NOMADS grib filter: 10 m wind, gusts,
 pressure, rain rate, visibility, GFS-Wave height/period/direction; 8-47N 100-58W, 0.25 deg,
-3-hourly to 168 h), served gzipped at `/api/passage/*` alongside the Navy run in the same layout. Status: `https://<server>/api/status`.
+3-hourly to 168 h), served gzipped at `/api/passage/*` alongside the Navy run in the same layout. Measured water
+levels for all 220 Atlantic-side NOAA gauges come from a gentle 30-minute sweep
+(`server/waterlevels.js`, 3 s between requests: NOAA's API gateway returns 403 on bursts)
+and are served at `/api/waterlevels`. Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
 ## Coverage

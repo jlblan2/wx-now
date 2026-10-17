@@ -197,6 +197,11 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
     Waves - wave height with arrows showing which way the waves are travelling
     Pressure & rain - isobars every 4 mb with rain shading
     Visibility - fog and poor-visibility areas
+    Water levels (measured now) - a dot at each NOAA water level gauge, coloured and
+           labelled by how far the water is above (+) or below (-) the predicted tide
+           (orange/red = high water, blue = low). A red ring means the gauge is at or
+           above its minor flood level. Readings are refreshed every 30 minutes; tap a
+           dot for the level, time, trend and flood level.
   Drag the time slider or press play to step through the next 7 days (NOAA) or 5 days
   (Navy; switch with the model menu). Tap anywhere for wind, gusts, waves, period,
   pressure, rain and visibility at that spot.

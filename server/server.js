@@ -17,6 +17,7 @@ import { stormAlerts } from './stormalerts.js';
 import { tropicalOutlook } from '../outlook.js';
 import { outlookAreas, outlookEvents, outlookSends } from './outlookalerts.js';
 import { gaugeFor, gaugeNow, decideHighWater, highWaterMessage } from './highwater.js';
+import { initWaterLevels, sweepWaterLevels, waterLevelSnapshot } from './waterlevels.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
@@ -245,6 +246,23 @@ async function highWaterLoop() {
   setTimeout(highWaterLoop, HIGHWATER_CHECK_MS);
 }
 
+// Water levels at every gauge for the Sailing weather map (a gentle 30-minute sweep).
+const WATERLEVEL_SWEEP_MS = 30 * 60000;
+initWaterLevels(DATA_DIR);
+
+async function waterLevelLoop() {
+  try {
+    const s = await sweepWaterLevels();
+    status.waterLevelGauges = s.gauges.length;
+    status.lastWaterLevelSweep = s.at;
+    status.lastWaterLevelError = null;
+  } catch (e) {
+    status.lastWaterLevelError = e.message;
+    console.error('Water level sweep failed:', e.message);
+  }
+  setTimeout(waterLevelLoop, WATERLEVEL_SWEEP_MS);
+}
+
 async function loop() {
   try {
     await check();
@@ -297,6 +315,9 @@ const routes = {
 
   // Navy (FNMOC) forecasts: run info, and the series at one point.
   'GET /api/navy/meta': async () => navyMeta(NAVY_DIR),
+  // Latest measured water level at every Atlantic-side gauge.
+  'GET /api/waterlevels': async () => waterLevelSnapshot(),
+
   // Sailing weather maps: which NOAA and Navy runs are available.
   'GET /api/passage/meta': async () => passageMeta(PASSAGE_DIR, NAVY_DIR),
   'GET /api/navy/point': async (_, q) => navyPoint(NAVY_DIR, +q.get('lat'), +q.get('lon')),
@@ -433,4 +454,5 @@ server.listen(PORT, '127.0.0.1', () => {
   stormLoop();
   marineLoop();
   highWaterLoop();
+  setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });

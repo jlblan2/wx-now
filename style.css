@@ -275,3 +275,4 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .tide-measured .above { color: #ff9f1c; font-weight: 600; }
 .tide-measured .below { color: #7fb4ff; font-weight: 600; }
 .tide-measured .muted { color: var(--muted); }
+.level-label { color: #fff; font: 700 11px -apple-system, system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; background: none; border: none; }

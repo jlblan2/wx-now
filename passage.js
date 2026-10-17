@@ -249,9 +249,92 @@ function drawVectors(m, g) {
   vectors = L.layerGroup(layers).addTo(map);
 }
 
+// ---------- measured water levels (all gauges, from the alert server) ----------
+
+// Colour by how far the water is above (+) or below (-) the predicted tide, in feet.
+const LEVEL_STOPS = [[-2, '#2a5bd7'], [-1, '#4f8ff7'], [-0.5, '#9cc3ff'], [0.5, '#e8edf5'], [1, '#ffd23f'], [2, '#ff8f2a'], [3, '#e8413a']];
+const levelColor = (ft) => (ft === null ? '#8195b0' : (LEVEL_STOPS.find(([v]) => ft <= v) || LEVEL_STOPS[LEVEL_STOPS.length - 1])[1]);
+let levelsLayer = null, levelsData = null;
+
+async function loadLevels() {
+  if (levelsData && Date.now() - levelsData.fetched < 5 * 60000) return levelsData;
+  const r = await fetch(`${opts.server()}/api/waterlevels`);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  levelsData = { ...j, fetched: Date.now() };
+  return levelsData;
+}
+
+function levelText(g) {
+  const u = opts.metric() ? 0.3048 : 1, unit = opts.metric() ? ' m' : ' ft';
+  const v = (x) => `${(x * u).toFixed(1)}${unit}`;
+  const t = new Date(g.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const diff = g.above === null ? '' : Math.abs(g.above) < 0.15 ? ', close to predicted'
+    : `, ${v(Math.abs(g.above))} ${g.above > 0 ? 'above' : 'below'} predicted`;
+  const trend = g.rising === 1 ? ', rising' : g.rising === -1 ? ', falling' : '';
+  let flood = '';
+  if (g.minor !== null) {
+    const stage = g.major !== null && g.level >= g.major ? 'MAJOR flooding level'
+      : g.moderate !== null && g.level >= g.moderate ? 'MODERATE flooding level'
+        : g.level >= g.minor ? 'MINOR flooding level' : null;
+    flood = stage ? ` · at ${stage}` : ` · minor flooding at ${v(g.minor)}`;
+  }
+  return `${g.name}: ${v(g.level)} above MLLW at ${t}${diff}${trend}${flood}`;
+}
+
+async function drawLevels() {
+  if (field) { field.remove(); field = null; }
+  if (vectors) { vectors.remove(); vectors = null; }
+  $('pwSlider').disabled = true;
+  $('pwPlay').disabled = true;
+  $('pwLabel').textContent = 'Measured now';
+  let d;
+  try { d = await loadLevels(); } catch (e) {
+    $('pwInfo').textContent = `Water levels unavailable: ${e.message}`;
+    return;
+  }
+  if (product !== 'levels') return;
+  if (levelsLayer) levelsLayer.remove();
+  const unit = opts.metric() ? 0.3048 : 1;
+  const layers = [];
+  for (const g of d.gauges) {
+    const flooding = g.minor !== null && g.level >= g.minor;
+    const marker = L.circleMarker([g.lat, g.lon], {
+      radius: 7, color: flooding ? '#ff3b3b' : '#0a1220', weight: flooding ? 3 : 1.5,
+      fillColor: levelColor(g.above), fillOpacity: 0.95,
+    });
+    marker.on('click', (e) => { L.DomEvent.stopPropagation(e); $('pwInfo').textContent = levelText(g); });
+    layers.push(marker);
+    if (g.above !== null && Math.abs(g.above) >= 0.15) {
+      const lbl = `${g.above > 0 ? '+' : '−'}${Math.abs(g.above * unit).toFixed(1)}`;
+      layers.push(L.marker([g.lat, g.lon], {
+        interactive: false,
+        icon: L.divIcon({ className: 'level-label', html: lbl, iconSize: [36, 14], iconAnchor: [-6, 7] }),
+      }));
+    }
+  }
+  levelsLayer = L.layerGroup(layers).addTo(map);
+  const age = d.at ? Math.round((Date.now() - Date.parse(d.at)) / 60000) : null;
+  $('pwInfo').textContent = `${d.gauges.length} NOAA gauges, measured within the last 30 minutes${age !== null ? ` (collected ${age} min ago)` : ''}. ` +
+    'Numbers are how far the water is above (+) or below (−) the predicted tide. A red ring means it is at or above minor flood level. Tap a gauge for details.';
+}
+
+function clearLevels() {
+  if (levelsLayer) { levelsLayer.remove(); levelsLayer = null; }
+  $('pwSlider').disabled = false;
+  $('pwPlay').disabled = false;
+}
+
 // ---------- UI ----------
 
 function legend() {
+  if (product === 'levels') {
+    const u = opts.metric() ? 'm' : 'ft', k = opts.metric() ? 0.3048 : 1;
+    const fmt = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(Math.round(v * k * 10) / 10)}`;
+    $('pwLegend').innerHTML = LEVEL_STOPS.map(([v, c], i) => `<span><i style="background:${c}"></i>${i === 3 ? '±0.5' : fmt(v)}</span>`).join('') +
+      `<span>${u} vs predicted tide</span>`;
+    return;
+  }
   const l = LEGENDS[product], ramp = RAMPS[l.ramp || product];
   const wavesUnit = opts.metric() ? 'm' : 'ft';
   $('pwLegend').innerHTML = l.stops.map((s, i) => {
@@ -263,6 +346,8 @@ function legend() {
 
 let drawToken = 0;
 async function draw() {
+  if (product === 'levels') { stopPlay(); return drawLevels(); }
+  clearLevels();
   if (!meta) return;
   const m = meta[model];
   if (!m) { $('pwLabel').textContent = `${model === 'navy' ? 'Navy' : 'NOAA'} data not available yet`; return; }
@@ -349,7 +434,7 @@ async function start() {
   }
   selectRegion(region);
   map.on('moveend', () => { if (state.g) drawVectors(state.m, state.g); });
-  map.on('click', (e) => showPoint(e.latlng));
+  map.on('click', (e) => { if (product !== 'levels') showPoint(e.latlng); });
   try {
     const r = await fetch(`${server}/api/passage/meta`);
     meta = await r.json();
