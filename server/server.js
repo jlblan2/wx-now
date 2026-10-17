@@ -324,6 +324,7 @@ async function ripLoop() {
       if (!(level > 0)) continue;
       const st = sub.rip = sub.rip || {};
       const sent = sub.marineSent = sub.marineSent || {};
+      const zonesSent = new Set();   // one alert per beach zone even if two places share it
       for (const place of watchList(sub)) {
         const name = place.name === 'Your last location' ? 'your location' : place.name;
         const z = await beachZoneOf(place.lat, place.lon).catch(() => null);
@@ -332,7 +333,8 @@ async function ripLoop() {
         if (periods) {
           places++;
           const kind = decideRip(st[place.key] = st[place.key] || { armed: true, low: 0 }, periods, level);
-          if (kind) {
+          if (kind && !zonesSent.has(z.zone)) {
+            zonesSent.add(z.zone);
             const msg = ripMessage(periods, name, level);
             console.log(`Rip: ${msg.title}: ${msg.body}`);
             await push(endpoint, { ...msg, tag: `rip-${place.key}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}&tab=seas` });
