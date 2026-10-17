@@ -115,7 +115,7 @@ one you used. Each tab has its own forecasts:
                    Navy second opinion and current details.
   Hurricanes     - active Atlantic storms (or a note when there are none), NHC's
                    tropical weather outlook, the storm map and storm surge maps.
-  Seas & swell   - your marine zone forecast, tides, water temperature, the passage
+  Seas & swell   - your marine zone forecast, tides, water temperature, the sailing
                    weather charts and
                    the Navy wave map.
 Under the tabs is a row of places: "My location" (your GPS) and each saved place.
@@ -200,7 +200,7 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   with its range over the next 5 days (Open-Meteo marine model), then the nearest NOAA
   buoys and coastal stations within 250 nm that measure water temperature: distance
   and direction, how long ago they reported, water and air temperature, waves and wind.
-- "Sailing weather" is a sailing weather chart for the US East Coast, the Gulf
+- "Sailing weather" is a sailing forecast chart for the US East Coast, the Gulf
   of America, the Bahamas, the Caribbean and Bermuda. Pick a region (Gulf, Florida,
   Bahamas, Caribbean, Western or Eastern Caribbean, Bermuda, the East Coast to Bermuda
   and Bermuda to Caribbean passages, Southeast, Mid-Atlantic, New England or the whole

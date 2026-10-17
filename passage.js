@@ -1,6 +1,6 @@
 import { loadBuoys, fmtTemp, cToF } from './seatemp.js';
 
-// Sailing weather: Forecast maps for the US East Coast, the Gulf
+// Sailing weather: forecast maps for the US East Coast, the Gulf
 // of America, the Bahamas, the Caribbean and Bermuda. Wind (speed colours + barbs in knots), waves (height + direction), pressure
 // (isobars + rain) and visibility, 3-hourly over 7 days, from NOAA GFS / GFS-Wave or the
 // Navy's NAVGEM / WAVEWATCH III, served as compact grids by the alert server.
