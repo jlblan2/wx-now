@@ -84,7 +84,10 @@ each saved place and alerts when sustained wind in the next 24 hours reaches the
 threshold (`POST /api/wind`, knots). Every 3 hours `server/tidealerts.js` checks NOAA's predicted highs and
 lows for the next 48 hours at the tide station nearest each saved place and alerts on highs above
 MHHW (or the minor flood level) and lows below MLLW by the subscriber's margin (`POST /api/tides`). Every 30 minutes `server/fogalerts.js` checks the 12-hour visibility
-forecast and NWS fog/smoke advisories (`alerts/active?point=`) at each saved place (`POST /api/fog`, nm). Status: `https://<server>/api/status`.
+forecast and NWS fog/smoke advisories (`alerts/active?point=`) at each saved place (`POST /api/fog`, nm). Every 5 minutes `server/thunder.js` runs `server/lightning/glm.py`
+(GOES-19 GLM L2 flash files from the public `noaa-goes19` S3 bucket, read with h5py) and alerts on
+lightning near each watched place, with a 30-minute all-clear, plus NWS severe thunderstorm and
+tornado watches/warnings at the place (`POST /api/lightning`, miles). Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
 ## Coverage

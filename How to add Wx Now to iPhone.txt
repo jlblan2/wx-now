@@ -82,6 +82,19 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Lightning and thunderstorm alerts: Settings > "Lightning and thunderstorm alerts"
+(10 miles by default; also 5, 15, 20, 30 miles, or Off). For each saved place and your last
+location, every 5 minutes:
+- Lightning detected by NOAA's GOES-19 weather satellite (its Lightning Mapper sees every
+  flash, day and night, over land and sea). You get "Lightning nearby" when 2 or more
+  flashes come within your distance in 15 minutes, with how far away and which direction;
+  "Lightning very close" if one comes within 3 miles; and "Lightning all clear" after 30
+  minutes with no lightning in range (the 30-30 rule). The satellite places flashes to
+  within a few miles, so treat distances as approximate.
+- National Weather Service Severe Thunderstorm and Tornado Watches and Warnings for the
+  place.
+Special Marine Warnings (thunderstorms over the water) come with the marine alerts.
+
 Fog alerts: Settings > "Fog alerts" (1 nm by default; also 2, 0.5, 0.25 nm, or Off).
 Every 30 minutes the server checks two things for each saved place:
 - the hourly visibility forecast for the next 12 hours: you get an alert when visibility

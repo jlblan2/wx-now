@@ -24,6 +24,7 @@ import { windForecast, windEvent, decideWind, windMessage } from './windalerts.j
 import { zoneOf } from './zones.js';
 import { tideStationFor, predictedExtremes, findExtremes, decideTides, tideMessage } from './tidealerts.js';
 import { floodLevels } from './highwater.js';
+import { THUNDER_EVENTS, refreshLightning, lightningNear, decideLightning, lightningMessage } from './thunder.js';
 import { FOG_EVENTS, visibilityForecast, fogEvent, decideFog, fogMessage, pointAlerts } from './fogalerts.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts, what, localTime } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
@@ -308,6 +309,56 @@ async function windLoop() {
   setTimeout(windLoop, WIND_CHECK_MS);
 }
 
+// Thunderstorms and lightning for saved places and the last location, every 5 minutes:
+// GOES-19 GLM lightning near each place, and NWS severe thunderstorm / tornado watches and
+// warnings there (sharing the marine "sent" record so nothing is sent twice).
+const THUNDER_CHECK_MS = 5 * 60000;
+
+async function thunderLoop() {
+  try {
+    const got = await refreshLightning();
+    status.lightningFlashes = got.flashes;
+    const nws = new Map();
+    let places = 0;
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const mi = sub.lightningMi ?? 10;
+      if (!(mi > 0)) continue;
+      const st = sub.thunder = sub.thunder || {};
+      const sent = sub.marineSent = sub.marineSent || {};
+      for (const place of watchList(sub)) {
+        places++;
+        const name = place.name === 'Your last location' ? 'your location' : place.name;
+        const near = lightningNear(place, mi);
+        const lastSeen = lightningNear(place, mi, undefined, Date.now(), 40 * 60000).newest;
+        const kind = decideLightning(st[place.key] = st[place.key] || {}, near, lastSeen);
+        if (kind) {
+          const msg = lightningMessage(kind, near, name, mi);
+          console.log(`Lightning: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `lightning-${place.key}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}` });
+        }
+        const key = `${place.lat.toFixed(2)},${place.lon.toFixed(2)}`;
+        if (!nws.has(key)) nws.set(key, await pointAlerts(place.lat, place.lon).catch(() => []));
+        for (const a of nws.get(key)) {
+          const q = a.properties || {};
+          if (!THUNDER_EVENTS.has(q.event) || sent[q.id]) continue;
+          sent[q.id] = Date.parse(q.ends || q.expires) || Date.now() + 86400000;
+          const msg = { title: `${q.event} · ${name}`, body: `${what(q.description) || q.headline || ''}${localTime(q.ends || q.expires)}`.trim() };
+          console.log(`Thunder: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `nws-${q.id}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}` });
+        }
+      }
+    }
+    saveSubs();
+    status.thunderPlaces = places;
+    status.lastThunderCheck = new Date().toISOString();
+    status.lastThunderError = null;
+  } catch (e) {
+    status.lastThunderError = e.message;
+    console.error('Thunder check failed:', e.message);
+  }
+  setTimeout(thunderLoop, THUNDER_CHECK_MS);
+}
+
 // Fog and low visibility for saved places, every 30 minutes: the 12-hour visibility forecast
 // and NWS fog/smoke advisories at each place. NWS alerts share the marine "sent" record, so an
 // advisory that also reaches the subscriber through a marine zone is only sent once.
@@ -460,6 +511,7 @@ function cleanPlaces(places) {
 }
 
 const cleanFt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1.0);
+const cleanMi = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(50, +v)) : 10);
 const cleanNm = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1);
 const cleanKt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(80, +v)) : 25);
 const cleanDegF = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(15, +v)) : 3);
@@ -527,6 +579,8 @@ const routes = {
       tides: prev.tides || {},
       fogNm: b.fogNm === undefined ? prev.fogNm ?? 1 : cleanNm(b.fogNm),
       fog: prev.fog || {},
+      lightningMi: b.lightningMi === undefined ? prev.lightningMi ?? 10 : cleanMi(b.lightningMi),
+      thunder: prev.thunder || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -557,6 +611,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, mi } — lightning alert distance in miles (0 = off, also stops NWS thunderstorm alerts).
+  'POST /api/lightning': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.lightningMi = cleanMi(b.mi);
     saveSubs();
     return { ok: true };
   },
@@ -685,6 +748,7 @@ server.listen(PORT, '127.0.0.1', () => {
   buoyLoop();
   windLoop();
   fogLoop();
+  thunderLoop();
   setTimeout(tideLoop, 90 * 1000);   // after the start-up NOAA requests
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });

@@ -284,3 +284,33 @@ run('fog: 2+ hours at or under the distance in the next 12 h, once, re-arm after
 });
 
 console.log('All fog tests passed');
+
+// ---------- lightning alerts ----------
+import { lightningNear, decideLightning, lightningMessage } from './thunder.js';
+
+run('lightning: nearby, very close, all clear after 30 minutes', () => {
+  const M = 60000, now = Date.UTC(2026, 9, 17, 20);
+  const home = { lat: 30.0, lon: -81.5 };
+  const at = (mi, t, dLat = 1) => [t, home.lat + dLat * mi / 69.05, home.lon];   // north or south of home
+  const st = {};
+  const look = (list, t) => [lightningNear(home, 10, list, t), lightningNear(home, 10, list, t, 40 * M).newest];
+  let list = [at(25, now - 2 * M), at(9, now - 3 * M)];
+  assert.equal(decideLightning(st, ...look(list, now), now), null, 'one flash in range is not enough');
+  list.push(at(7, now - M, -1));
+  let [near, seen] = look(list, now);
+  assert.equal(near.count, 2);
+  assert.equal(Math.round(near.nearest.mi), 7);
+  assert.equal(near.nearest.dir, 'S');
+  assert.equal(decideLightning(st, near, seen, now), 'nearby');
+  assert.equal(decideLightning(st, ...look(list, now + 5 * M), now + 5 * M), null, 'no repeat');
+  list.push(at(2, now + 9 * M));
+  assert.equal(decideLightning(st, ...look(list, now + 10 * M), now + 10 * M), 'close');
+  assert.equal(decideLightning(st, ...look(list, now + 30 * M), now + 30 * M), null, 'only 21 minutes since the last flash');
+  assert.equal(decideLightning(st, ...look(list, now + 40 * M), now + 40 * M), 'clear');
+  assert.equal(decideLightning(st, ...look([], now + 45 * M), now + 45 * M), null, 'quiet after all clear');
+  const m = lightningMessage('nearby', near, 'Home', 10);
+  assert.equal(m.title, 'Lightning nearby · Home');
+  assert.equal(m.body, '2 flashes within 10 miles in the last 15 minutes, nearest 7 mi (6 nm) S. Head in: off the water, out of the open. You will get an all-clear after 30 minutes without lightning.');
+});
+
+console.log('All lightning tests passed');

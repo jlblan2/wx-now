@@ -13,7 +13,7 @@ echo "== Packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -y -q git curl ca-certificates iptables-persistent debian-keyring debian-archive-keyring apt-transport-https gnupg \
-  python3-eccodes python3-numpy python3-pil dpkg-dev
+  python3-eccodes python3-numpy python3-pil python3-h5py dpkg-dev
 
 if ! command -v node >/dev/null || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt 18 ]; then
   echo "== Node.js 20"
