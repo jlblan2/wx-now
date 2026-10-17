@@ -201,3 +201,33 @@ run('water temperature: baseline, two reports past the change, new baseline', ()
 });
 
 console.log('All water temperature tests passed');
+
+// ---------- wind forecast alerts ----------
+import { windEvent, decideWind, windMessage } from './windalerts.js';
+
+run('wind: event in the next 24 h, once, stronger by 10 kt, re-arm after easing', () => {
+  const H = 3600000, now = Date.UTC(2026, 9, 17, 16), off = -4 * H;
+  const fc = (peaks) => Array.from({ length: 30 }, (_, i) => {
+    const kt = peaks[i] ?? 10;
+    return { t: now + i * H, local: now + i * H + off, kt, gust: kt * 1.4, dir: 45 };
+  });
+  const st = { armed: true, low: 0 };
+  assert.equal(decideWind(st, windEvent(fc({}), 25, now), 25), null, 'calm');
+  const w = windEvent(fc({ 6: 22, 7: 26, 8: 28, 9: 25, 10: 20 }), 25, now);
+  assert.equal(w.event.start.t, now + 7 * H);
+  assert.equal(w.event.end.t, now + 9 * H);
+  assert.equal(w.event.peak.kt, 28);
+  assert.equal(decideWind(st, w, 25), 'new');
+  assert.equal(decideWind(st, windEvent(fc({ 7: 30 }), 25, now), 25), null, 'no repeat');
+  assert.equal(decideWind(st, windEvent(fc({ 7: 38 }), 25, now), 25), 'stronger');
+  decideWind(st, windEvent(fc({}), 25, now), 25);
+  assert.equal(decideWind(st, windEvent(fc({ 3: 26 }), 25, now), 25), null, 'one calm check is not enough to re-arm');
+  assert.equal(decideWind(st, windEvent(fc({ 27: 40 }), 25, now), 25), null, 'beyond 24 h does not count');
+  decideWind(st, windEvent(fc({}), 25, now), 25);
+  assert.equal(decideWind(st, windEvent(fc({ 3: 26 }), 25, now), 25), 'new', 're-armed');
+  const m = windMessage('new', w.event, 'Home', false);
+  assert.equal(m.title, 'Wind forecast · Home');
+  assert.equal(m.body, 'Up to 28 kt (32 mph) from the NE, gusts to 39 kt, Sat 7 PM to Sat 9 PM. Strongest Sat 8 PM.');
+});
+
+console.log('All wind tests passed');

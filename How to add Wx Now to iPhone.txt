@@ -82,6 +82,14 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Wind forecast alerts: Settings > "Wind forecast alerts" (25 kt by default; also 15, 20,
+30 kt, 34 kt gale, 48 kt storm, or Off). For each saved place the server checks the hourly
+wind forecast every hour. You get an alert when sustained wind in the next 24 hours is
+forecast to reach your speed, for example "Wind forecast - Home: Up to 28 kt (32 mph) from
+the NE, gusts to 39 kt, Sat 7 PM to Sun 3 AM. Strongest Sat 11 PM." You get another if the
+forecast grows 10 kt stronger. After that it stays quiet until the forecast eases. Saved
+places only, not your last location.
+
 Water temperature alerts: Settings > "Water temperature alerts" (3 F by default; also
 2, 5 or 9 F, or Off). The server watches the NOAA buoy or coastal station nearest each
 saved place and your last location (within 50 nm), checking every 30 minutes. Its first

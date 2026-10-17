@@ -79,7 +79,9 @@ levels for all 220 Atlantic-side NOAA gauges come from a gentle 30-minute sweep
 (`server/waterlevels.js`, 3 s between requests: NOAA's API gateway returns 403 on bursts)
 and are served at `/api/waterlevels`. NDBC buoy reports (`server/buoys.js`, one
 `latest_obs.txt` download every 30 minutes, Pacific excluded) are served at `/api/buoys`. After each refresh `server/watertemp.js` alerts subscribers when the water at the buoy
-nearest a watched place has warmed or cooled by their chosen amount (`POST /api/watertemp`). Status: `https://<server>/api/status`.
+nearest a watched place has warmed or cooled by their chosen amount (`POST /api/watertemp`). Every hour `server/windalerts.js` checks the Open-Meteo hourly wind forecast for
+each saved place and alerts when sustained wind in the next 24 hours reaches the subscriber's
+threshold (`POST /api/wind`, knots). Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
 ## Coverage

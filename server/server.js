@@ -20,6 +20,7 @@ import { gaugeFor, gaugeNow, decideHighWater, highWaterMessage } from './highwat
 import { initWaterLevels, sweepWaterLevels, waterLevelSnapshot } from './waterlevels.js';
 import { refreshBuoys, buoySnapshot } from './buoys.js';
 import { buoyFor, decideWaterTemp, waterTempMessage } from './watertemp.js';
+import { windForecast, windEvent, decideWind, windMessage } from './windalerts.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
@@ -265,6 +266,44 @@ async function waterLevelLoop() {
   setTimeout(waterLevelLoop, WATERLEVEL_SWEEP_MS);
 }
 
+// Wind forecast alerts for saved places: the next 24 hours, checked hourly (the forecast
+// updates hourly). Forecasts are shared between subscribers with the same place.
+const WIND_CHECK_MS = 60 * 60000;
+
+async function windLoop() {
+  try {
+    const cache = new Map();
+    let places = 0;
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const threshold = sub.windKt ?? 25;
+      if (!(threshold > 0)) continue;
+      const st = sub.wind = sub.wind || {};
+      for (const p of (sub.places || []).filter(validPoint)) {
+        const key = `${p.lat.toFixed(2)},${p.lon.toFixed(2)}`;
+        if (!cache.has(key)) cache.set(key, await windForecast(p.lat, p.lon).catch(() => null));
+        const hours = cache.get(key);
+        if (!hours) continue;
+        places++;
+        const s = st[p.name] = st[p.name] || { armed: true, low: 0 };
+        const w = windEvent(hours, threshold);
+        const kind = decideWind(s, w, threshold);
+        if (!kind) continue;
+        const msg = windMessage(kind, w.event, p.name, sub.metric);
+        console.log(`Wind: ${msg.title}: ${msg.body}`);
+        await push(endpoint, { ...msg, tag: `wind-${p.name}`, url: `./?lat=${p.lat.toFixed(4)}&lon=${p.lon.toFixed(4)}` });
+      }
+    }
+    saveSubs();
+    status.windPlaces = places;
+    status.lastWindCheck = new Date().toISOString();
+    status.lastWindError = null;
+  } catch (e) {
+    status.lastWindError = e.message;
+    console.error('Wind check failed:', e.message);
+  }
+  setTimeout(windLoop, WIND_CHECK_MS);
+}
+
 // Water temperature alerts: change at the buoy nearest each watched place, checked after
 // every buoy refresh.
 async function waterTempAlerts(stations) {
@@ -323,6 +362,7 @@ function cleanPlaces(places) {
 }
 
 const cleanFt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1.0);
+const cleanKt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(80, +v)) : 25);
 const cleanDegF = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(15, +v)) : 3);
 
 function cleanMarine(m) {
@@ -382,6 +422,8 @@ const routes = {
       waterTempF: b.waterTempF === undefined ? prev.waterTempF ?? 3 : cleanDegF(b.waterTempF),
       metric: b.metric === undefined ? !!prev.metric : !!b.metric,
       waterTemp: prev.waterTemp || {},
+      windKt: b.windKt === undefined ? prev.windKt ?? 25 : cleanKt(b.windKt),
+      wind: prev.wind || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -412,6 +454,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, kt } — wind forecast alert threshold in knots (0 = off).
+  'POST /api/wind': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.windKt = cleanKt(b.kt);
     saveSubs();
     return { ok: true };
   },
@@ -511,5 +562,6 @@ server.listen(PORT, '127.0.0.1', () => {
   marineLoop();
   highWaterLoop();
   buoyLoop();
+  windLoop();
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });
