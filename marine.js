@@ -63,7 +63,7 @@ function summarize(text) {
 const OFFSHORE = { GMZ: ['NT4'], AMZ: ['NT3', 'NT5'], ANZ: ['NT2', 'NT1'] };
 
 // Zone ids in a UGC line such as "ANZ800-805-161000-" or "AMZ040>042-161000-".
-function ugcZones(line) {
+export function ugcZones(line) {
   const out = [];
   let prefix = null, prev = null;
   for (const m of line.matchAll(/([A-Z]{2}Z)?(\d{3})([->])/g)) {

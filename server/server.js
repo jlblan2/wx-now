@@ -24,6 +24,7 @@ import { windForecast, windEvent, decideWind, windMessage } from './windalerts.j
 import { zoneOf } from './zones.js';
 import { tideStationFor, predictedExtremes, findExtremes, decideTides, tideMessage } from './tidealerts.js';
 import { floodLevels } from './highwater.js';
+import { SURF_EVENTS, beachZoneOf, surfForecast, zoneRisk, decideRip, ripMessage } from './ripalerts.js';
 import { THUNDER_EVENTS, refreshLightning, lightningNear, decideLightning, lightningMessage } from './thunder.js';
 import { FOG_EVENTS, visibilityForecast, fogEvent, decideFog, fogMessage, pointAlerts } from './fogalerts.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts, what, localTime } from './marinealerts.js';
@@ -309,6 +310,57 @@ async function windLoop() {
   setTimeout(windLoop, WIND_CHECK_MS);
 }
 
+// Rip currents for saved places and the last location, hourly: the NWS Surf Zone Forecast
+// risk for the place's beach zone, plus NWS High Surf / Beach Hazards alerts there (and Rip
+// Current Statements where no Surf Zone Forecast covers the place).
+const RIP_CHECK_MS = 60 * 60000;
+
+async function ripLoop() {
+  try {
+    const nws = new Map();
+    let places = 0;
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const level = sub.ripLevel ?? 3;
+      if (!(level > 0)) continue;
+      const st = sub.rip = sub.rip || {};
+      const sent = sub.marineSent = sub.marineSent || {};
+      for (const place of watchList(sub)) {
+        const name = place.name === 'Your last location' ? 'your location' : place.name;
+        const z = await beachZoneOf(place.lat, place.lon).catch(() => null);
+        if (!z || !z.cwa) continue;
+        const periods = zoneRisk(await surfForecast(z.cwa), z.zone, z.county);
+        if (periods) {
+          places++;
+          const kind = decideRip(st[place.key] = st[place.key] || { armed: true, low: 0 }, periods, level);
+          if (kind) {
+            const msg = ripMessage(periods, name, level);
+            console.log(`Rip: ${msg.title}: ${msg.body}`);
+            await push(endpoint, { ...msg, tag: `rip-${place.key}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}&tab=seas` });
+          }
+        }
+        const key = `${place.lat.toFixed(2)},${place.lon.toFixed(2)}`;
+        if (!nws.has(key)) nws.set(key, await pointAlerts(place.lat, place.lon).catch(() => []));
+        for (const a of nws.get(key)) {
+          const q = a.properties || {};
+          if (!(SURF_EVENTS.has(q.event) || (!periods && q.event === 'Rip Current Statement')) || sent[q.id]) continue;
+          sent[q.id] = Date.parse(q.ends || q.expires) || Date.now() + 86400000;
+          const msg = { title: `${q.event} · ${name}`, body: `${what(q.description) || q.headline || ''}${localTime(q.ends || q.expires)}`.trim() };
+          console.log(`Surf: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `nws-${q.id}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}&tab=seas` });
+        }
+      }
+    }
+    saveSubs();
+    status.ripPlaces = places;
+    status.lastRipCheck = new Date().toISOString();
+    status.lastRipError = null;
+  } catch (e) {
+    status.lastRipError = e.message;
+    console.error('Rip current check failed:', e.message);
+  }
+  setTimeout(ripLoop, RIP_CHECK_MS);
+}
+
 // Thunderstorms and lightning for saved places and the last location, every 5 minutes:
 // GOES-19 GLM lightning near each place, and NWS severe thunderstorm / tornado watches and
 // warnings there (sharing the marine "sent" record so nothing is sent twice).
@@ -511,6 +563,7 @@ function cleanPlaces(places) {
 }
 
 const cleanFt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1.0);
+const cleanLevel = (v) => ([0, 2, 3].includes(+v) ? +v : 3);
 const cleanMi = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(50, +v)) : 10);
 const cleanNm = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1);
 const cleanKt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(80, +v)) : 25);
@@ -581,6 +634,8 @@ const routes = {
       fog: prev.fog || {},
       lightningMi: b.lightningMi === undefined ? prev.lightningMi ?? 10 : cleanMi(b.lightningMi),
       thunder: prev.thunder || {},
+      ripLevel: b.ripLevel === undefined ? prev.ripLevel ?? 3 : cleanLevel(b.ripLevel),
+      rip: prev.rip || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -611,6 +666,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, level } — rip current alerts: 0 off, 2 moderate or high, 3 high only.
+  'POST /api/rip': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.ripLevel = cleanLevel(b.level);
     saveSubs();
     return { ok: true };
   },
@@ -749,6 +813,7 @@ server.listen(PORT, '127.0.0.1', () => {
   windLoop();
   fogLoop();
   thunderLoop();
+  setTimeout(ripLoop, 2 * 60000);
   setTimeout(tideLoop, 90 * 1000);   // after the start-up NOAA requests
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });

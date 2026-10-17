@@ -87,7 +87,9 @@ MHHW (or the minor flood level) and lows below MLLW by the subscriber's margin (
 forecast and NWS fog/smoke advisories (`alerts/active?point=`) at each saved place (`POST /api/fog`, nm). Every 5 minutes `server/thunder.js` runs `server/lightning/glm.py`
 (GOES-19 GLM L2 flash files from the public `noaa-goes19` S3 bucket, read with h5py) and alerts on
 lightning near each watched place, with a 30-minute all-clear, plus NWS severe thunderstorm and
-tornado watches/warnings at the place (`POST /api/lightning`, miles). Status: `https://<server>/api/status`.
+tornado watches/warnings at the place (`POST /api/lightning`, miles). Hourly, `server/ripalerts.js` parses the NWS Surf Zone
+Forecast (SRF) for each watched place's beach zone (`/points` lookup) and alerts on moderate/high
+rip current risk, plus High Surf and Beach Hazards alerts (`POST /api/rip`). Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
 ## Coverage

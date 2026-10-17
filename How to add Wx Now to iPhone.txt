@@ -82,6 +82,15 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Rip current alerts: Settings > "Rip current alerts" (High risk by default; also Moderate
+or high, or Off). Every hour the server reads the National Weather Service Surf Zone
+Forecast for the beach zone at each saved place and your last location: the rip current
+risk (low, moderate or high) and surf height for today and tomorrow. You get an alert when
+the risk reaches your level, for example "High rip current risk - Home: Sunday: high, surf
+9 to 11 feet...", another if it rises from moderate to high, and none again until it has
+dropped back. High Surf Advisories and Warnings and Beach Hazards Statements for the place
+come too. Places inland or on a bay have no surf zone, so they get no rip current alerts.
+
 Lightning and thunderstorm alerts: Settings > "Lightning and thunderstorm alerts"
 (10 miles by default; also 5, 15, 20, 30 miles, or Off). For each saved place and your last
 location, every 5 minutes:

@@ -314,3 +314,37 @@ run('lightning: nearby, very close, all clear after 30 minutes', () => {
 });
 
 console.log('All lightning tests passed');
+
+// ---------- rip current alerts ----------
+import { parseSrf, decideRip, ripMessage } from './ripalerts.js';
+
+run('rip currents: Surf Zone Forecast parsing, alert once, higher, re-arm', () => {
+  const srf = [
+    'FLZ124-125-138-233-333-180600-', 'Nassau-Duval-Flagler-St. Johns-', '',
+    '...HIGH RIP CURRENT RISK IN EFFECT THROUGH LATE MONDAY NIGHT...', '',
+    '.REST OF TODAY...', 'Rip Current Risk*...........Moderate. ', 'Surf Height.................3 to 4 feet. ',
+    'Winds.......................North winds 15 to 20 mph.', '',
+    '.SUNDAY...', 'Rip Current Risk*...........High. ', 'Surf Height.................9 to 11 feet. ', '',
+    '.EXTENDED...', '.MONDAY...Surf height 9 to 11 feet.', '', '&&', '', '$$', '',
+    'GAZ154-180600-', 'Coastal Glynn-', '', '.TODAY...', 'Rip Current Risk*...........Low.', '', '$$',
+  ].join('\n');
+  const segs = parseSrf(srf);
+  assert.equal(segs.length, 2);
+  assert.ok(segs[0].zones.has('FLZ125') && segs[0].zones.has('FLZ333'));
+  assert.deepEqual(segs[0].periods, [{ name: 'Rest Of Today', risk: 'Moderate', surf: '3 to 4 feet' }, { name: 'Sunday', risk: 'High', surf: '9 to 11 feet' }]);
+  assert.equal(segs[1].periods[0].risk, 'Low');
+  const st = { armed: true, low: 0 };
+  const mod = [{ name: 'Today', risk: 'Moderate', surf: '' }], high = [{ name: 'Today', risk: 'High', surf: '' }], low = [{ name: 'Today', risk: 'Low', surf: '' }];
+  assert.equal(decideRip(st, low, 2), null);
+  assert.equal(decideRip(st, mod, 2), 'risk');
+  assert.equal(decideRip(st, mod, 2), null, 'no repeat');
+  assert.equal(decideRip(st, high, 2), 'higher');
+  decideRip(st, low, 2); decideRip(st, low, 2);
+  assert.equal(decideRip(st, high, 3), 'risk', 're-armed after two lower checks');
+  assert.equal(decideRip({ armed: true, low: 0 }, mod, 3), null, 'high-only ignores moderate');
+  const m = ripMessage(segs[0].periods, 'Home', 3);
+  assert.equal(m.title, 'High rip current risk · Home');
+  assert.equal(m.body, 'Sunday: high, surf 9 to 11 feet. Life-threatening rip currents are likely. Stay out of the water or swim near a lifeguard. If caught, swim parallel to the shore.');
+});
+
+console.log('All rip current tests passed');
