@@ -24,7 +24,8 @@ import { windForecast, windEvent, decideWind, windMessage } from './windalerts.j
 import { zoneOf } from './zones.js';
 import { tideStationFor, predictedExtremes, findExtremes, decideTides, tideMessage } from './tidealerts.js';
 import { floodLevels } from './highwater.js';
-import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
+import { FOG_EVENTS, visibilityForecast, fogEvent, decideFog, fogMessage, pointAlerts } from './fogalerts.js';
+import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts, what, localTime } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
 import { passageMeta, passageStep } from './passage.js';
@@ -307,6 +308,56 @@ async function windLoop() {
   setTimeout(windLoop, WIND_CHECK_MS);
 }
 
+// Fog and low visibility for saved places, every 30 minutes: the 12-hour visibility forecast
+// and NWS fog/smoke advisories at each place. NWS alerts share the marine "sent" record, so an
+// advisory that also reaches the subscriber through a marine zone is only sent once.
+const FOG_CHECK_MS = 30 * 60000;
+
+async function fogLoop() {
+  try {
+    const fc = new Map(), nws = new Map();
+    let places = 0;
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const threshold = sub.fogNm ?? 1;
+      if (!(threshold > 0)) continue;
+      const st = sub.fog = sub.fog || {};
+      const sent = sub.marineSent = sub.marineSent || {};
+      for (const p of (sub.places || []).filter(validPoint)) {
+        const key = `${p.lat.toFixed(2)},${p.lon.toFixed(2)}`;
+        if (!fc.has(key)) fc.set(key, await visibilityForecast(p.lat, p.lon).catch(() => null));
+        if (!nws.has(key)) nws.set(key, await pointAlerts(p.lat, p.lon).catch(() => []));
+        places++;
+        const hours = fc.get(key);
+        if (hours) {
+          const s = st[p.name] = st[p.name] || { armed: true, low: 0 };
+          const f = fogEvent(hours, threshold);
+          if (decideFog(s, f, threshold)) {
+            const msg = fogMessage(f.event, p.name, sub.metric);
+            console.log(`Fog: ${msg.title}: ${msg.body}`);
+            await push(endpoint, { ...msg, tag: `fog-${p.name}`, url: `./?lat=${p.lat.toFixed(4)}&lon=${p.lon.toFixed(4)}` });
+          }
+        }
+        for (const a of nws.get(key)) {
+          const q = a.properties || {};
+          if (!FOG_EVENTS.has(q.event) || sent[q.id]) continue;
+          sent[q.id] = Date.parse(q.ends || q.expires) || Date.now() + 86400000;
+          const msg = { title: `${q.event} · ${p.name}`, body: `${what(q.description) || q.headline || ''}${localTime(q.ends || q.expires)}`.trim() };
+          console.log(`Fog: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `nws-${q.id}`, url: `./?lat=${p.lat.toFixed(4)}&lon=${p.lon.toFixed(4)}` });
+        }
+      }
+    }
+    saveSubs();
+    status.fogPlaces = places;
+    status.lastFogCheck = new Date().toISOString();
+    status.lastFogError = null;
+  } catch (e) {
+    status.lastFogError = e.message;
+    console.error('Fog check failed:', e.message);
+  }
+  setTimeout(fogLoop, FOG_CHECK_MS);
+}
+
 // Extreme tide alerts for saved places: predicted highs and lows for the next 48 hours,
 // checked every 3 hours. Predictions are shared between subscribers using the same station.
 const TIDE_CHECK_MS = 3 * 3600000;
@@ -409,6 +460,7 @@ function cleanPlaces(places) {
 }
 
 const cleanFt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1.0);
+const cleanNm = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1);
 const cleanKt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(80, +v)) : 25);
 const cleanDegF = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(15, +v)) : 3);
 
@@ -473,6 +525,8 @@ const routes = {
       wind: prev.wind || {},
       tideFt: b.tideFt === undefined ? prev.tideFt ?? 1.0 : cleanFt(b.tideFt),
       tides: prev.tides || {},
+      fogNm: b.fogNm === undefined ? prev.fogNm ?? 1 : cleanNm(b.fogNm),
+      fog: prev.fog || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -503,6 +557,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, nm } — fog / low visibility alert distance in nautical miles (0 = off).
+  'POST /api/fog': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.fogNm = cleanNm(b.nm);
     saveSubs();
     return { ok: true };
   },
@@ -621,6 +684,7 @@ server.listen(PORT, '127.0.0.1', () => {
   highWaterLoop();
   buoyLoop();
   windLoop();
+  fogLoop();
   setTimeout(tideLoop, 90 * 1000);   // after the start-up NOAA requests
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });

@@ -82,6 +82,17 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Fog alerts: Settings > "Fog alerts" (1 nm by default; also 2, 0.5, 0.25 nm, or Off).
+Every 30 minutes the server checks two things for each saved place:
+- the hourly visibility forecast for the next 12 hours: you get an alert when visibility
+  is forecast to drop to your distance for 2 hours or more, for example "Fog forecast -
+  Home: Visibility down to 0.15 nm (300 yd), Sun 4 AM to Sun 9 AM. Lowest around Sun 6 AM."
+  After that it stays quiet until the forecast clears;
+- National Weather Service Dense Fog, Freezing Fog and Dense Smoke Advisories issued for
+  the place itself.
+Marine alerts now include Dense Fog Advisories for your marine zones too (sent once even
+if both cover the same advisory).
+
 Extreme tide alerts: Settings > "Extreme tide alerts" (1 ft by default; also 0.5, 1.5,
 2 ft, or Off). Every 3 hours the server reads NOAA's tide predictions for the next 2 days
 at the tide station nearest each saved place (within 30 nm). You get an alert ahead of time

@@ -47,6 +47,15 @@
         <option value="2">2 ft above predicted</option>
       </select>
     </label>
+    <label>Fog alerts for saved places: NWS fog advisories, and when visibility in the next 12 hours is forecast to drop to
+      <select id="pushFog">
+        <option value="0">Off</option>
+        <option value="2">2 nm (2.3 mi)</option>
+        <option value="1">1 nm (1.2 mi)</option>
+        <option value="0.5">0.5 nm (1,000 yd)</option>
+        <option value="0.25">0.25 nm (500 yd), dense fog</option>
+      </select>
+    </label>
     <label>Extreme tide alerts for saved places, up to 2 days ahead, when NOAA predicts a high tide above the normal high, or a low tide below the normal low, by
       <select id="pushTide">
         <option value="0">Off</option>
@@ -77,7 +86,7 @@
       </select>
     </label>
     <label class="check"><input type="checkbox" id="pushOutlook"> Include tropical outlook alerts: a new Atlantic area NHC is watching, or its chances going up</label>
-    <label class="check"><input type="checkbox" id="pushMarine"> Include marine alerts: Small Craft Advisory, Gale, Storm and Special Marine Warnings</label>
+    <label class="check"><input type="checkbox" id="pushMarine"> Include marine alerts: Small Craft Advisory, Gale, Storm and Special Marine Warnings, Dense Fog Advisory</label>
     <p class="note">Gulf and Atlantic coast. For the zone picked in the marine forecast card, and the marine zone at each saved place or last location that is near the water.</p>
     <p id="pushMsg" class="note msg"></p>
 

@@ -1,6 +1,6 @@
 // App shell: network first so updates show up straight away, cache as the offline fallback.
 // Radar, model and map-tile requests always go to the network.
-const CACHE = 'wxnow-v5';
+const CACHE = 'wxnow-v6';
 const ASSETS = [
   './',
   './index.html',

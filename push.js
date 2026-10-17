@@ -64,7 +64,7 @@ async function enable() {
     if (sub && store.get('pushKey', '') !== key) { await sub.unsubscribe(); sub = null; }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
     const here = currentSpot();
-    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true), highWaterFt: +store.get('pushHighWater', '1'), ...waterTempPrefs(), windKt: +store.get('pushWind', '25'), tideFt: +store.get('pushTide', '1') });
+    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true), highWaterFt: +store.get('pushHighWater', '1'), ...waterTempPrefs(), windKt: +store.get('pushWind', '25'), tideFt: +store.get('pushTide', '1'), fogNm: +store.get('pushFog', '1') });
     store.set('pushKey', key);
     store.set('pushOn', true);
     lastSent = here ? { ...here, at: Date.now() } : null;
@@ -125,6 +125,16 @@ export async function syncWaterTemp() {
     if (sub) await api('/api/watertemp', { endpoint: sub.endpoint, f: p.waterTempF, metric: p.metric });
   } catch (e) {
     setMsg(`Could not update water temperature alerts on the alert server: ${e.message}`, true);
+  }
+}
+
+async function syncFog() {
+  if (!pushEnabled()) return;
+  try {
+    const sub = await subscription();
+    if (sub) await api('/api/fog', { endpoint: sub.endpoint, nm: +store.get('pushFog', '1') });
+  } catch (e) {
+    setMsg(`Could not update fog alerts on the alert server: ${e.message}`, true);
   }
 }
 
@@ -236,6 +246,8 @@ export function initPush(getSpot) {
   });
   $('pushHighWater').value = store.get('pushHighWater', '1');
   $('pushHighWater').addEventListener('change', (e) => { store.set('pushHighWater', e.target.value); syncHighWater(); });
+  $('pushFog').value = store.get('pushFog', '1');
+  $('pushFog').addEventListener('change', (e) => { store.set('pushFog', e.target.value); syncFog(); });
   $('pushTide').value = store.get('pushTide', '1');
   $('pushTide').addEventListener('change', (e) => { store.set('pushTide', e.target.value); syncTides(); });
   $('pushWind').value = store.get('pushWind', '25');

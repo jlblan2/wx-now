@@ -261,3 +261,26 @@ run('tides: extreme highs and lows in the next 48 h, one alert each, no repeats'
 });
 
 console.log('All tide tests passed');
+
+// ---------- fog alerts ----------
+import { fogEvent, decideFog, fogMessage, distText } from './fogalerts.js';
+
+run('fog: 2+ hours at or under the distance in the next 12 h, once, re-arm after clearing', () => {
+  const H = 3600000, now = Date.UTC(2026, 9, 17, 4), off = -4 * H;
+  const fc = (vis) => Array.from({ length: 24 }, (_, i) => ({ t: now + i * H, local: now + i * H + off, nm: vis[i] ?? 8 }));
+  const st = { armed: true, low: 0 };
+  assert.equal(decideFog(st, fogEvent(fc({ 3: 0.4 }), 1, now), 1), false, 'a single foggy hour does not count');
+  const f = fogEvent(fc({ 3: 0.8, 4: 0.15, 5: 0.3, 6: 2 }), 1, now);
+  assert.equal(f.event.start.t, now + 3 * H);
+  assert.equal(f.event.low.nm, 0.15);
+  assert.equal(decideFog(st, f, 1), true);
+  assert.equal(decideFog(st, fogEvent(fc({ 4: 0.1, 5: 0.1 }), 1, now), 1), false, 'no repeat');
+  assert.equal(decideFog(st, fogEvent(fc({ 15: 0.1, 16: 0.1 }), 1, now), 1), false, 'beyond 12 h does not count');
+  decideFog(st, fogEvent(fc({}), 1, now), 1);
+  assert.equal(decideFog(st, fogEvent(fc({ 4: 0.1, 5: 0.1 }), 1, now), 1), true, 're-armed after two clear checks');
+  assert.equal(fogMessage(f.event, 'Home', false).body, 'Visibility down to 0.15 nm (300 yd), Sat 3 AM to Sat 5 AM. Lowest around Sat 4 AM.');
+  assert.equal(distText(0.15, true), '300 m');
+  assert.equal(distText(1.5, false), '1.5 nm (1.7 mi)');
+});
+
+console.log('All fog tests passed');

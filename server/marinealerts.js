@@ -10,6 +10,7 @@ export const MARINE_EVENTS = new Set([
   'Hurricane Force Wind Watch', 'Hurricane Force Wind Warning',
   'Hazardous Seas Watch', 'Hazardous Seas Warning',
   'Special Marine Warning',
+  'Dense Fog Advisory',
 ]);
 const NEAR_KM = 100;   // a watched place counts only if a marine zone is this close
 
@@ -31,13 +32,13 @@ export async function marineZones(sub, watchList) {
 }
 
 // "North winds 20 to 30 kt with gusts up to 35 kt expected." from the "* WHAT..." line.
-function what(description) {
+export function what(description) {
   const m = String(description || '').match(/\*\s*WHAT\.\.\.([\s\S]*?)(?:\n\s*\n|\*\s*WHERE|$)/);
   return m ? m[1].replace(/\s+/g, ' ').trim() : '';
 }
 
 // " until Sat 1:00 PM" in the alert area's own local time (from the timestamp's offset).
-function localTime(iso) {
+export function localTime(iso) {
   const m = String(iso || '').match(/([+-])(\d{2}):(\d{2})$/);
   const t = Date.parse(iso);
   if (!m || !Number.isFinite(t)) return '';
