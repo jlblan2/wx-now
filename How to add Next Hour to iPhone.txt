@@ -174,8 +174,12 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   whether the tide is rising or falling and its height now, the next high and low,
   a 3-day tide curve and each day's highs and lows. Pick another station from the
   menu (listed nearest first). Heights are above mean lower low water (MLLW), the
-  datum on nautical charts. These are predictions; strong winds and low or high
-  pressure can push actual water levels above or below them.
+  datum on nautical charts.
+  Below the tide line, "Measured" shows the latest real water level from the nearest
+  NOAA gauge (updated every 6 minutes) and how far it is above or below the
+  prediction - the effect of wind, pressure and storm surge. When the gauge is the
+  station itself, the chart adds the measured level as an orange line over the blue
+  predicted curve. Subordinate stations borrow the nearest gauge within 30 nm.
 - "Sailing weather" is a sailing weather chart for the US East Coast, the Gulf
   of America, the Bahamas, the Caribbean and Bermuda. Pick a region (Gulf, Florida,
   Bahamas, Caribbean, Western or Eastern Caribbean, Bermuda, the East Coast to Bermuda

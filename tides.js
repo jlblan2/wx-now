@@ -1,7 +1,8 @@
 // Tide predictions for the Seas & swell tab, from NOAA CO-OPS (api.tidesandcurrents.noaa.gov):
 // high and low tides for the nearest Atlantic-side station, a 3-day tide curve and the
-// tide right now. Heights are above MLLW (mean lower low water), the chart datum.
-import { TIDE_STATIONS } from './tidestations.js';
+// tide right now, plus the water level measured at the nearest working gauge and how far
+// it is above or below the prediction (the effect of wind, pressure and surge). Heights are above MLLW (mean lower low water), the chart datum.
+import { TIDE_STATIONS, WL_STATIONS } from './tidestations.js';
 
 const API = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
 const NM_PER_KM = 0.539957;
@@ -45,6 +46,36 @@ async function highsLows(id, metric) {
   return cache.get(key);
 }
 
+const WL_NEAR_KM = 56;   // about 30 nautical miles
+
+// Measured water levels (last 3 days, 6-minute) and the gauge's own 6-minute predictions,
+// for the gauge nearest the tide station.
+async function measured(st, metric) {
+  let best = null;
+  for (const [id, name, lat, lon] of WL_STATIONS) {
+    const d = km(st, { lat, lon });
+    if (!best || d < best.km) best = { id, name, lat, lon, km: d };
+  }
+  if (!best || best.km > WL_NEAR_KM) return null;
+  const key = `wl|${best.id}|${metric}|${Math.floor(Date.now() / 360000)}`;   // new data every 6 min
+  if (!cache.has(key)) {
+    const common = { station: best.id, datum: 'MLLW', units: metric ? 'metric' : 'english', time_zone: 'gmt', format: 'json', application: 'NextHour' };
+    const get = (q) => fetch(`${API}?${new URLSearchParams({ ...common, ...q })}`).then((r) => r.json());
+    const start = new Date(Date.now() - 30 * 3600000);
+    const p = Promise.all([
+      get({ product: 'water_level', date: 'recent' }),
+      get({ product: 'predictions', interval: '6', begin_date: ymd(start), range: '54' }),
+    ]).then(([obs, pred]) => {
+      const parse = (list) => (list || []).filter((x) => x.v !== '' && x.v !== null)
+        .map((x) => ({ t: Date.parse(`${x.t.replace(' ', 'T')}:00Z`), v: +x.v }));
+      return { gauge: best, obs: parse(obs.data), pred: parse(pred.predictions) };
+    });
+    cache.set(key, p);
+    p.catch(() => cache.delete(key));
+  }
+  return cache.get(key);
+}
+
 // Tide height at a moment, by cosine interpolation between the surrounding high and low
 // (the standard way to draw tides between NOAA's predicted extremes).
 function heightAt(ex, t) {
@@ -59,7 +90,7 @@ function heightAt(ex, t) {
 
 const time = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-function drawChart(ex, unit) {
+function drawChart(ex, unit, obs) {
   const cv = $('tideChart'), dpr = window.devicePixelRatio || 1;
   const W = cv.clientWidth, H = cv.clientHeight;
   if (!W) return;
@@ -71,7 +102,7 @@ function drawChart(ex, unit) {
   const day0 = new Date(); day0.setHours(0, 0, 0, 0);
   const t0 = day0.getTime(), t1 = t0 + 3 * 86400000;
   const shown = ex.filter((e) => e.t >= t0 - 86400000 && e.t <= t1 + 86400000);
-  const vals = shown.map((e) => e.v);
+  const vals = [...shown.map((e) => e.v), ...(obs || []).filter((o) => o.t >= t0).map((o) => o.v)];
   const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.15 || 0.5;
   const L0 = 34, R0 = 6, T0 = 16, B0 = 20, pw = W - L0 - R0, ph = H - T0 - B0;
   const X = (t) => L0 + (t - t0) / (t1 - t0) * pw;
@@ -102,6 +133,16 @@ function drawChart(ex, unit) {
   ctx.strokeStyle = '#4a8cff'; ctx.lineWidth = 2; ctx.stroke();
   ctx.lineTo(L0 + pw, T0 + ph); ctx.lineTo(L0, T0 + ph); ctx.closePath();
   ctx.fillStyle = 'rgba(74,140,255,0.15)'; ctx.fill();
+  // Measured water level (orange) up to now.
+  if (obs && obs.length) {
+    ctx.beginPath();
+    let started = false;
+    for (const o of obs) {
+      if (o.t < t0 || o.t > t1) continue;
+      if (!started) { ctx.moveTo(X(o.t), Y(o.v)); started = true; } else ctx.lineTo(X(o.t), Y(o.v));
+    }
+    ctx.strokeStyle = '#ff9f1c'; ctx.lineWidth = 2; ctx.stroke();
+  }
   // Highs and lows.
   ctx.fillStyle = css.getPropertyValue('--text').trim(); ctx.textAlign = 'center';
   for (const e of ex) {
@@ -118,7 +159,7 @@ function drawChart(ex, unit) {
   }
 }
 
-function render(st, ex) {
+function render(st, ex, wl) {
   const unit = opts.metric() ? ' m' : ' ft', u = opts.metric() ? 'm' : 'ft';
   const now = Date.now(), h = heightAt(ex, now), hSoon = heightAt(ex, now + 15 * 60000);
   const next = ex.filter((e) => e.t > now);
@@ -127,7 +168,9 @@ function render(st, ex) {
   $('tideNow').innerHTML = Number.isNaN(h) ? '' :
     `<strong>${trend}, ${h.toFixed(1)}${unit} now</strong>` +
     `${nh ? ` · high ${nh.v.toFixed(1)}${unit} at ${time(nh.t)}` : ''}${nl ? ` · low ${nl.v.toFixed(1)}${unit} at ${time(nl.t)}` : ''}`;
-  drawChart(ex, u);
+  const sameGauge = wl && wl.gauge.id === st.id;
+  drawChart(ex, u, sameGauge ? wl.obs : null);
+  $('tideMeasured').innerHTML = measuredText(wl, unit, u, sameGauge);
   // Table: today and the next two days.
   const day0 = new Date(); day0.setHours(0, 0, 0, 0);
   const rows = [];
@@ -140,6 +183,33 @@ function render(st, ex) {
   $('tideTable').innerHTML = `<table>${rows.join('')}</table>`;
   $('tideMeta').textContent = `NOAA tide predictions for ${st.name}${st.state ? `, ${st.state}` : ''} (station ${st.id}${st.type === 'S' ? ', subordinate' : ''}), ` +
     `${Math.round(st.km * NM_PER_KM)} nm away. Heights above mean lower low water (MLLW); times are your phone's time. Predictions only: wind and pressure change actual water levels.`;
+}
+
+// "Measured 2.4 ft at 7:42 PM, 0.5 ft above predicted (rising)" for the nearest gauge.
+function measuredText(wl, unit, u, sameGauge) {
+  if (!wl) return '<span class="muted">No water level gauge within 30 nm of this station.</span>';
+  const last = wl.obs[wl.obs.length - 1];
+  if (!last || Date.now() - last.t > 3 * 3600000) return `<span class="muted">The nearest gauge (${opts.esc(wl.gauge.name)}) has no recent reading.</span>`;
+  // Prediction at the same moment, for the difference.
+  let pred = null;
+  for (let i = 1; i < wl.pred.length; i++) {
+    if (wl.pred[i].t >= last.t) {
+      const a = wl.pred[i - 1], b = wl.pred[i], f = (last.t - a.t) / (b.t - a.t || 1);
+      pred = a.v + (b.v - a.v) * f;
+      break;
+    }
+  }
+  const ago = wl.obs.find((o) => o.t >= last.t - 30 * 60000);
+  const trend = ago && last.v - ago.v > 0.03 ? 'rising' : ago && ago.v - last.v > 0.03 ? 'falling' : 'steady';
+  let diff = '';
+  if (pred !== null) {
+    const d = last.v - pred, small = Math.abs(d) < (u === 'm' ? 0.05 : 0.15);
+    diff = small ? ', close to predicted'
+      : `, <span class="${d > 0 ? 'above' : 'below'}">${Math.abs(d).toFixed(1)}${unit} ${d > 0 ? 'above' : 'below'} predicted</span>`;
+  }
+  const where = sameGauge ? '' : ` at ${opts.esc(wl.gauge.name)} (${Math.round(wl.gauge.km * NM_PER_KM)} nm away)`;
+  return `<strong>Measured${where}: ${last.v.toFixed(1)}${unit}</strong> at ${time(last.t)}${diff} (${trend})` +
+    (sameGauge ? '<br><span class="muted">Chart: blue predicted, orange measured.</span>' : '');
 }
 
 export async function showTides(loc) {
@@ -158,15 +228,15 @@ export async function showTides(loc) {
     : near[0];
   if (!chosen && st.km > 150) {
     $('tideNow').textContent = 'No NOAA tide station within about 80 nautical miles of this spot.';
-    $('tideChart').hidden = true; $('tideTable').innerHTML = ''; $('tideMeta').textContent = '';
+    $('tideChart').hidden = true; $('tideTable').innerHTML = ''; $('tideMeta').textContent = ''; $('tideMeasured').innerHTML = '';
     return;
   }
   $('tideChart').hidden = false;
   current = { st, loc };
   try {
-    const ex = await highsLows(st.id, opts.metric());
+    const [ex, wl] = await Promise.all([highsLows(st.id, opts.metric()), measured(st, opts.metric()).catch(() => null)]);
     if (current.st !== st) return;
-    render(st, ex);
+    render(st, ex, wl);
   } catch (e) {
     $('tideNow').textContent = `Tide predictions unavailable: ${e.message}`;
   }
