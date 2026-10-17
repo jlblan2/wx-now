@@ -38,6 +38,15 @@
       <button id="pushToggle" class="btn">Turn on</button>
       <button id="pushTest" class="btn ghost" hidden>Send test alert</button>
     </div>
+    <label>High water alerts, when the water at the nearest NOAA gauge runs above predicted
+      <select id="pushHighWater">
+        <option value="0">Off</option>
+        <option value="0.5">0.5 ft above predicted</option>
+        <option value="1">1 ft above predicted</option>
+        <option value="1.5">1.5 ft above predicted</option>
+        <option value="2">2 ft above predicted</option>
+      </select>
+    </label>
     <label class="check"><input type="checkbox" id="pushOutlook"> Include tropical outlook alerts: a new Atlantic area NHC is watching, or its chances going up</label>
     <label class="check"><input type="checkbox" id="pushMarine"> Include marine alerts: Small Craft Advisory, Gale, Storm and Special Marine Warnings</label>
     <p class="note">Gulf and Atlantic coast. For the zone picked in the marine forecast card, and the marine zone at each saved place or last location that is near the water.</p>

@@ -154,3 +154,26 @@ run('outlook: quiet first run, new areas, rising chances, no repeats', () => {
 });
 
 console.log('All outlook alert tests passed');
+
+// ---------- high water alerts ----------
+import { decideHighWater, highWaterMessage } from './highwater.js';
+
+run('high water: threshold, a further foot, flood stage, quiet until it drops', () => {
+  const st = { armed: true, low: 0 };
+  const flood = { minor: 5.0, moderate: 6.0, major: 7.0 };
+  const r = (level, above) => ({ level, above, predicted: level - above, rising: true, flood });
+  assert.equal(decideHighWater(st, r(2.0, 0.6), 1), null, 'below threshold');
+  assert.equal(decideHighWater(st, r(2.5, 1.1), 1), 'above');
+  assert.equal(decideHighWater(st, r(2.8, 1.5), 1), null, 'no repeat');
+  assert.equal(decideHighWater(st, r(3.4, 2.1), 1), 'higher', 'another foot');
+  assert.equal(decideHighWater(st, r(5.2, 2.6), 1), 'minor', 'flood level reached');
+  assert.equal(decideHighWater(st, r(5.3, 2.7), 1), null);
+  decideHighWater(st, r(2.0, 0.4), 1);
+  decideHighWater(st, r(1.8, 0.3), 1);
+  assert.equal(decideHighWater(st, r(2.4, 1.0), 1), 'above', 're-armed after dropping back');
+  const m = highWaterMessage('above', { level: 3.1, above: 1.3, rising: true, flood }, { name: 'St. Petersburg' }, 'Home');
+  assert.equal(m.title, 'High water · St. Petersburg (Home)');
+  assert.equal(m.body, '1.3 ft above predicted. Water 3.1 ft above MLLW, rising. Minor flooding begins at 5.0 ft.');
+});
+
+console.log('All high water tests passed');

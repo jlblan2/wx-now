@@ -75,6 +75,13 @@ to medium or high, or its 2-day chance becomes high). Each alert says how far th
 area is from your nearest saved place, e.g. "About 3,550 mi E of Home". Tapping it
 opens the Hurricanes tab.
 
+High water alerts: Settings > "High water alerts" (1 ft by default; also 0.5, 1.5,
+2 ft or Off). The server checks the NOAA water level gauge nearest each saved place
+and your last location (within 30 nm) every 6 minutes. You get an alert when the
+measured water runs that far above the predicted tide, another if it climbs a further
+foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
+It stays quiet until the water drops back. Tapping it opens Seas & swell.
+
 
 PART 4 - SAVE PLACES (optional)
 -------------------------------

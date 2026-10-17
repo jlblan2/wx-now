@@ -47,6 +47,22 @@ async function highsLows(id, metric) {
 }
 
 const WL_NEAR_KM = 56;   // about 30 nautical miles
+const MDAPI = 'https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations';
+
+// NOAA minor coastal flood level for a gauge, in the display units above MLLW (or null).
+async function minorFlood(id, metric) {
+  const key = `flood|${id}`;
+  if (!cache.has(key)) {
+    cache.set(key, Promise.all([fetch(`${MDAPI}/${id}/floodlevels.json`).then((r) => r.json()), fetch(`${MDAPI}/${id}/datums.json`).then((r) => r.json())])
+      .then(([f, d]) => {
+        const mllw = (d.datums || []).find((x) => x.name === 'MLLW');
+        const v = f.nws_minor ?? f.nos_minor;
+        return mllw && typeof v === 'number' && d.units === 'feet' ? v - mllw.value : null;
+      }).catch(() => null));
+  }
+  const ft = await cache.get(key);
+  return ft === null ? null : metric ? ft * 0.3048 : ft;
+}
 
 // Measured water levels (last 3 days, 6-minute) and the gauge's own 6-minute predictions,
 // for the gauge nearest the tide station.
@@ -68,7 +84,7 @@ async function measured(st, metric) {
     ]).then(([obs, pred]) => {
       const parse = (list) => (list || []).filter((x) => x.v !== '' && x.v !== null)
         .map((x) => ({ t: Date.parse(`${x.t.replace(' ', 'T')}:00Z`), v: +x.v }));
-      return { gauge: best, obs: parse(obs.data), pred: parse(pred.predictions) };
+      return minorFlood(best.id, metric).then((flood) => ({ gauge: best, obs: parse(obs.data), pred: parse(pred.predictions), flood }));
     });
     cache.set(key, p);
     p.catch(() => cache.delete(key));
@@ -208,7 +224,8 @@ function measuredText(wl, unit, u, sameGauge) {
       : `, <span class="${d > 0 ? 'above' : 'below'}">${Math.abs(d).toFixed(1)}${unit} ${d > 0 ? 'above' : 'below'} predicted</span>`;
   }
   const where = sameGauge ? '' : ` at ${opts.esc(wl.gauge.name)} (${Math.round(wl.gauge.km * NM_PER_KM)} nm away)`;
-  return `<strong>Measured${where}: ${last.v.toFixed(1)}${unit}</strong> at ${time(last.t)}${diff} (${trend})` +
+  const flood = wl.flood !== null && wl.flood !== undefined ? ` Minor flooding begins at ${wl.flood.toFixed(1)}${unit}.` : '';
+  return `<strong>Measured${where}: ${last.v.toFixed(1)}${unit}</strong> at ${time(last.t)}${diff} (${trend}).${flood}` +
     (sameGauge ? '<br><span class="muted">Chart: blue predicted, orange measured.</span>' : '');
 }
 

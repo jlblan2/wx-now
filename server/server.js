@@ -16,6 +16,7 @@ import { activeStorms } from '../storms.js';
 import { stormAlerts } from './stormalerts.js';
 import { tropicalOutlook } from '../outlook.js';
 import { outlookAreas, outlookEvents, outlookSends } from './outlookalerts.js';
+import { gaugeFor, gaugeNow, decideHighWater, highWaterMessage } from './highwater.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
@@ -208,6 +209,42 @@ async function marineLoop() {
   setTimeout(marineLoop, MARINE_CHECK_MS);
 }
 
+// High water: measured level vs predicted at the gauge nearest each watched place.
+const HIGHWATER_CHECK_MS = 6 * 60000;   // gauges report every 6 minutes
+
+async function highWaterLoop() {
+  try {
+    const readings = new Map();   // gauge id -> reading (shared by subscribers)
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const threshold = sub.highWaterFt ?? 1.0;
+      if (!(threshold > 0)) continue;
+      const st = sub.highWater = sub.highWater || {};
+      const seen = new Set();
+      for (const place of watchList(sub)) {
+        const g = gaugeFor(place);
+        if (!g || seen.has(g.id)) continue;   // one alert per gauge even if two places share it
+        seen.add(g.id);
+        if (!readings.has(g.id)) readings.set(g.id, await gaugeNow(g.id).catch(() => null));
+        const r = readings.get(g.id);
+        if (!r) continue;
+        const kind = decideHighWater(st[g.id] = st[g.id] || { armed: true, low: 0 }, r, threshold);
+        if (!kind) continue;
+        const msg = highWaterMessage(kind, r, g, place.name === 'Your last location' ? '' : place.name);
+        console.log(`High water: ${msg.title}: ${msg.body}`);
+        await push(endpoint, { ...msg, tag: `highwater-${g.id}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}&tab=seas` });
+      }
+    }
+    saveSubs();
+    status.gauges = readings.size;
+    status.lastHighWaterCheck = new Date().toISOString();
+    status.lastHighWaterError = null;
+  } catch (e) {
+    status.lastHighWaterError = e.message;
+    console.error('High water check failed:', e.message);
+  }
+  setTimeout(highWaterLoop, HIGHWATER_CHECK_MS);
+}
+
 async function loop() {
   try {
     await check();
@@ -227,6 +264,8 @@ function cleanPlaces(places) {
     name: String(p.name || 'Saved place').slice(0, 40), lat: +p.lat, lon: +p.lon,
   }));
 }
+
+const cleanFt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1.0);
 
 function cleanMarine(m) {
   return { on: m.on !== false, zone: /^(GMZ|AMZ|ANZ)\d{3}$/.test(m.zone || '') ? m.zone : 'auto' };
@@ -274,6 +313,8 @@ const routes = {
       last: validPoint(b.last) ? { lat: +b.last.lat, lon: +b.last.lon, at: Date.now() } : prev.last || null,
       marine: b.marine ? cleanMarine(b.marine) : prev.marine || { on: true, zone: 'auto' },
       outlookOn: b.outlook === undefined ? prev.outlookOn !== false : b.outlook !== false,
+      highWaterFt: b.highWaterFt === undefined ? prev.highWaterFt ?? 1.0 : cleanFt(b.highWaterFt),
+      highWater: prev.highWater || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -295,6 +336,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.places = cleanPlaces(b.places);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, ft } — high water alert threshold in feet above predicted (0 = off).
+  'POST /api/highwater': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.highWaterFt = cleanFt(b.ft);
     saveSubs();
     return { ok: true };
   },
@@ -382,4 +432,5 @@ server.listen(PORT, '127.0.0.1', () => {
   loop();
   stormLoop();
   marineLoop();
+  highWaterLoop();
 });
