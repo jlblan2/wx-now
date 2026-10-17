@@ -140,6 +140,11 @@ async function refresh() {
 
 function setStatus(t) { $('status').textContent = t; }
 
+function showSettings(open) {
+  $('settings').hidden = !open;
+  $('settingsBtn').setAttribute('aria-expanded', String(open));
+}
+
 function render() {
   const r = state.result;
   if (!r) return;
@@ -1221,7 +1226,7 @@ function bindUi() {
     const v = b.dataset.place;
     if (v === 'gps') goToPlace(null);
     else if (v === 'add') {
-      $('settings').hidden = false;
+      showSettings(true);
       $('placeName').focus();
       $('placeName').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else if (v !== 'here') goToPlace(savedPlaces()[+v]);
@@ -1273,7 +1278,7 @@ function bindUi() {
     store.set('arrows', state.arrows);
     drawArrows(state.result && state.result.radar);
   });
-  $('settingsBtn').addEventListener('click', () => { $('settings').hidden = !$('settings').hidden; });
+  $('settingsBtn').addEventListener('click', () => showSettings($('settings').hidden));
   $('units').value = state.units;
   $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); syncWaterTemp(); if (state.tab === 'seas') { loadTides(); loadWaterTemp(); } });
   $('alerts').checked = state.alerts;
