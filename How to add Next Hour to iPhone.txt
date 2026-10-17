@@ -82,6 +82,14 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Water temperature alerts: Settings > "Water temperature alerts" (3 F by default; also
+2, 5 or 9 F, or Off). The server watches the NOAA buoy or coastal station nearest each
+saved place and your last location (within 50 nm), checking every 30 minutes. Its first
+reading is the starting point; when the water has warmed or cooled by your amount from
+it (on two reports in a row, so one bad reading doesn't set it off), you get an alert
+such as "Water cooler - WEST TAMPA: 79 F, down 4 F since Tue, Oct 13 (83 F)", and that
+reading becomes the new starting point. Alerts use your units setting (F or C).
+
 
 PART 4 - SAVE PLACES (optional)
 -------------------------------

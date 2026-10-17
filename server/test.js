@@ -177,3 +177,27 @@ run('high water: threshold, a further foot, flood stage, quiet until it drops', 
 });
 
 console.log('All high water tests passed');
+
+// ---------- water temperature alerts ----------
+import { buoyFor, decideWaterTemp, waterTempMessage } from './watertemp.js';
+
+run('water temperature: baseline, two reports past the change, new baseline', () => {
+  const H = 3600000, t0 = Date.UTC(2026, 9, 13, 12);
+  const b = (c, h) => ({ id: '42036', name: 'WEST TAMPA - 112 NM WNW of Tampa', lat: 28.5, lon: -84.5, wtmp: c, t: t0 + h * H });
+  const st = {};
+  assert.equal(decideWaterTemp(st, b(28.0, 0), 3), null, 'first reading is the baseline');
+  assert.equal(decideWaterTemp(st, b(27.0, 1), 3), null, 'under 3 °F');
+  assert.equal(decideWaterTemp(st, b(26.0, 2), 3), null, 'one report past the change is not enough');
+  assert.equal(decideWaterTemp(st, b(26.0, 2), 3), null, 'same report again');
+  assert.equal(decideWaterTemp(st, b(26.1, 3), 3), 'cooler');
+  assert.equal(decideWaterTemp(st, b(26.0, 4), 3), null, 'new baseline');
+  assert.equal(decideWaterTemp(st, b(28.0, 5), 3), null);
+  assert.equal(decideWaterTemp(st, b(25.0, 6), 3), null, 'a spike back resets the count');
+  const m = waterTempMessage('cooler', { from: 82.4, fromT: t0 }, b(26.1, 3), 'Home', false);
+  assert.equal(m.title, 'Water cooler · WEST TAMPA (Home)');
+  assert.equal(m.body, 'Water temperature 79 °F, down 3 °F since Tue, Oct 13 (82 °F). Measured at WEST TAMPA - 112 NM WNW of Tampa.');
+  assert.equal(buoyFor({ lat: 28.4, lon: -84.4 }, [b(28, 0)]).id, '42036');
+  assert.equal(buoyFor({ lat: 30.4, lon: -84.4 }, [b(28, 0)]), null, 'over 50 nm away');
+});
+
+console.log('All water temperature tests passed');

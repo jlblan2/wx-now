@@ -64,7 +64,7 @@ async function enable() {
     if (sub && store.get('pushKey', '') !== key) { await sub.unsubscribe(); sub = null; }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
     const here = currentSpot();
-    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true), highWaterFt: +store.get('pushHighWater', '1') });
+    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true), highWaterFt: +store.get('pushHighWater', '1'), ...waterTempPrefs() });
     store.set('pushKey', key);
     store.set('pushOn', true);
     lastSent = here ? { ...here, at: Date.now() } : null;
@@ -111,6 +111,20 @@ export async function syncMarine() {
     if (sub) await api('/api/marine', { endpoint: sub.endpoint, ...marinePrefs() });
   } catch (e) {
     setMsg(`Could not update marine alerts on the alert server: ${e.message}`, true);
+  }
+}
+
+const waterTempPrefs = () => ({ waterTempF: +store.get('pushWaterTemp', '3'), metric: store.get('units', 'us') === 'metric' });
+
+// Also called when the units change, so alerts read in °F or °C to match.
+export async function syncWaterTemp() {
+  if (!pushEnabled()) return;
+  try {
+    const sub = await subscription();
+    const p = waterTempPrefs();
+    if (sub) await api('/api/watertemp', { endpoint: sub.endpoint, f: p.waterTempF, metric: p.metric });
+  } catch (e) {
+    setMsg(`Could not update water temperature alerts on the alert server: ${e.message}`, true);
   }
 }
 
@@ -202,6 +216,8 @@ export function initPush(getSpot) {
   });
   $('pushHighWater').value = store.get('pushHighWater', '1');
   $('pushHighWater').addEventListener('change', (e) => { store.set('pushHighWater', e.target.value); syncHighWater(); });
+  $('pushWaterTemp').value = store.get('pushWaterTemp', '3');
+  $('pushWaterTemp').addEventListener('change', (e) => { store.set('pushWaterTemp', e.target.value); syncWaterTemp(); });
   $('pushOutlook').checked = store.get('pushOutlook', true);
   $('pushOutlook').addEventListener('change', (e) => { store.set('pushOutlook', e.target.checked); syncOutlook(); });
   $('pushMarine').checked = store.get('pushMarine', true);

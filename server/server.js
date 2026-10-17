@@ -19,6 +19,7 @@ import { outlookAreas, outlookEvents, outlookSends } from './outlookalerts.js';
 import { gaugeFor, gaugeNow, decideHighWater, highWaterMessage } from './highwater.js';
 import { initWaterLevels, sweepWaterLevels, waterLevelSnapshot } from './waterlevels.js';
 import { refreshBuoys, buoySnapshot } from './buoys.js';
+import { buoyFor, decideWaterTemp, waterTempMessage } from './watertemp.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
@@ -264,12 +265,36 @@ async function waterLevelLoop() {
   setTimeout(waterLevelLoop, WATERLEVEL_SWEEP_MS);
 }
 
+// Water temperature alerts: change at the buoy nearest each watched place, checked after
+// every buoy refresh.
+async function waterTempAlerts(stations) {
+  for (const [endpoint, sub] of Object.entries(subs)) {
+    const threshold = sub.waterTempF ?? 3;
+    if (!(threshold > 0)) continue;
+    const st = sub.waterTemp = sub.waterTemp || {};
+    const seen = new Set();
+    for (const place of watchList(sub)) {
+      const b = buoyFor(place, stations);
+      if (!b || seen.has(b.id)) continue;   // one alert per station even if two places share it
+      seen.add(b.id);
+      const s = st[b.id] = st[b.id] || {};
+      const kind = decideWaterTemp(s, b, threshold);
+      if (!kind) continue;
+      const msg = waterTempMessage(kind, s, b, place.name === 'Your last location' ? '' : place.name, sub.metric);
+      console.log(`Water temperature: ${msg.title}: ${msg.body}`);
+      await push(endpoint, { ...msg, tag: `watertemp-${b.id}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}&tab=seas` });
+    }
+  }
+  saveSubs();
+}
+
 // NDBC buoys: one file with every station's latest report, every 30 minutes.
 async function buoyLoop() {
   try {
     const s = await refreshBuoys();
     status.buoys = s.stations.length;
     status.lastBuoyError = null;
+    await waterTempAlerts(s.stations);
   } catch (e) {
     status.lastBuoyError = e.message;
     console.error('Buoy refresh failed:', e.message);
@@ -298,6 +323,7 @@ function cleanPlaces(places) {
 }
 
 const cleanFt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1.0);
+const cleanDegF = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(15, +v)) : 3);
 
 function cleanMarine(m) {
   return { on: m.on !== false, zone: /^(GMZ|AMZ|ANZ)\d{3}$/.test(m.zone || '') ? m.zone : 'auto' };
@@ -353,6 +379,9 @@ const routes = {
       outlookOn: b.outlook === undefined ? prev.outlookOn !== false : b.outlook !== false,
       highWaterFt: b.highWaterFt === undefined ? prev.highWaterFt ?? 1.0 : cleanFt(b.highWaterFt),
       highWater: prev.highWater || {},
+      waterTempF: b.waterTempF === undefined ? prev.waterTempF ?? 3 : cleanDegF(b.waterTempF),
+      metric: b.metric === undefined ? !!prev.metric : !!b.metric,
+      waterTemp: prev.waterTemp || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -383,6 +412,16 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, f, metric } — water temperature change alert, in °F (0 = off), and units.
+  'POST /api/watertemp': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.waterTempF = cleanDegF(b.f);
+    sub.metric = !!b.metric;
     saveSubs();
     return { ok: true };
   },

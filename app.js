@@ -10,7 +10,7 @@ import { fetchModel, describe } from './model.js';
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
 } from './forecast.js';
-import { initPush, reportLocation, pushEnabled, syncMarine, alertServerUrl } from './push.js';
+import { initPush, reportLocation, pushEnabled, syncMarine, syncWaterTemp, alertServerUrl } from './push.js';
 import { secondOpinion } from './compare.js';
 import { initPassage, passageUnitsChanged, passageShown } from './passage.js';
 
@@ -1273,7 +1273,7 @@ function bindUi() {
   });
   $('settingsBtn').addEventListener('click', () => { $('settings').hidden = !$('settings').hidden; });
   $('units').value = state.units;
-  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); if (state.tab === 'seas') { loadTides(); loadWaterTemp(); } });
+  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); syncWaterTemp(); if (state.tab === 'seas') { loadTides(); loadWaterTemp(); } });
   $('alerts').checked = state.alerts;
   $('alerts').addEventListener('change', (e) => setAlerts(e.target.checked));
   window.addEventListener('resize', () => state.result && drawChart(state.result.series));
