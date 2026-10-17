@@ -98,7 +98,7 @@ async function refresh() {
     loadStorms();
     loadOutlook();
     loadMarine(loc);
-    if (state.tab === 'seas') loadTides();
+    if (state.tab === 'seas') loadTides(loc);
     const { site, quality } = radarCoverage(loc);
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
     let radar = null, radarErr = null;
@@ -141,7 +141,7 @@ function render() {
   const r = state.result;
   if (!r) return;
   $('summary').textContent = r.summary.text;
-  $('place').textContent = `${state.picked ? 'Selected point' : 'Your location'} · ${fmtCoord(r.loc)}`;
+  $('place').textContent = `${state.picked ? state.picked.name || 'Selected point' : 'Your location'} · ${fmtCoord(r.loc)}`;
   $('gpsBtn').hidden = !state.picked;
 
   let src;
@@ -462,7 +462,10 @@ function initMap() {
   }).addTo(map);
   map.attributionControl.addAttribution('Radar: NOAA NEXRAD via Iowa Environmental Mesonet');
   map.on('click', (e) => {
+    if (state.tab !== 'local') return;   // on other tabs taps are for the map's own details
     state.picked = { lat: e.latlng.lat, lon: e.latlng.lng };
+    store.set('activePlace', null);
+    renderPlaceBar();
     refresh();
   });
 }
@@ -1006,11 +1009,86 @@ function showStormOnMap(i) {
   $('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// ---------- saved places switcher ----------
+
+const savedPlaces = () => store.get('places', []);
+
+function renderPlaceBar() {
+  const list = savedPlaces();
+  const p = state.picked;
+  const isSaved = (pl) => p && p.name === pl.name && Math.abs(p.lat - pl.lat) < 1e-4 && Math.abs(p.lon - pl.lon) < 1e-4;
+  const chips = [`<button class="chip${p ? '' : ' on'}" data-place="gps">📍 My location</button>`];
+  list.forEach((pl, i) => chips.push(`<button class="chip${isSaved(pl) ? ' on' : ''}" data-place="${i}">${esc(pl.name)}</button>`));
+  if (p && !list.some(isSaved)) chips.push(`<button class="chip on" data-place="here">${esc(p.name || 'Map point')}</button>`);
+  chips.push('<button class="chip add" data-place="add" title="Save this spot as a place">＋</button>');
+  $('placeBar').innerHTML = chips.join('');
+}
+
+// Switches the whole app to a place (null = GPS), re-centring the maps on it.
+async function goToPlace(pl) {
+  state.picked = pl ? { lat: pl.lat, lon: pl.lon, name: pl.name } : null;
+  store.set('activePlace', pl ? pl.name : null);
+  state.mapCentred = false;
+  delete tabViews.local;
+  delete tabViews.seas;
+  renderPlaceBar();
+  if (!pl) await locate();
+  if (map && state.tab !== 'storms') {
+    const loc = state.picked || state.gps;
+    if (loc) map.setView([loc.lat, loc.lon], state.tab === 'seas' ? 6 : 8);
+  }
+  refresh();
+}
+
+// ---------- scroll slider ----------
+
+function initScrollRail() {
+  const rail = $('scrollRail'), thumb = $('scrollThumb');
+  let drag = null;
+  const metrics = () => {
+    const top = $('topbar').getBoundingClientRect().bottom + 4;
+    const h = window.innerHeight - top - 8;
+    const doc = document.documentElement.scrollHeight, view = window.innerHeight;
+    const th = Math.max(40, h * view / doc);
+    return { top, h, doc, view, th, max: doc - view };
+  };
+  const update = () => {
+    const m = metrics();
+    rail.style.display = m.max > 40 ? '' : 'none';
+    rail.style.top = `${m.top}px`;
+    rail.style.height = `${m.h}px`;
+    thumb.style.height = `${m.th}px`;
+    thumb.style.top = `${(m.h - m.th) * (m.max > 0 ? window.scrollY / m.max : 0)}px`;
+  };
+  const scrollToY = (clientY, offset) => {
+    const m = metrics();
+    const f = (clientY - m.top - offset) / Math.max(1, m.h - m.th);
+    window.scrollTo({ top: Math.max(0, Math.min(1, f)) * m.max });
+  };
+  rail.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    rail.setPointerCapture(e.pointerId);
+    const t = thumb.getBoundingClientRect();
+    // Grab the thumb where it was touched, or centre it under a tap on the track.
+    drag = { offset: e.clientY >= t.top && e.clientY <= t.bottom ? e.clientY - t.top : t.height / 2 };
+    rail.classList.add('dragging');
+    scrollToY(e.clientY, drag.offset);
+  });
+  rail.addEventListener('pointermove', (e) => { if (drag) scrollToY(e.clientY, drag.offset); });
+  const end = () => { drag = null; rail.classList.remove('dragging'); };
+  rail.addEventListener('pointerup', end);
+  rail.addEventListener('pointercancel', end);
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  new ResizeObserver(update).observe(document.body);
+  update();
+}
+
 // ---------- tides (Seas & swell) ----------
 
 let tidesMod = null;
-async function loadTides() {
-  const loc = (state.result && state.result.loc) || state.picked || state.gps;
+async function loadTides(at) {
+  const loc = at || state.picked || state.gps;   // the place being shown now, not the last result
   if (!loc) return;
   try {
     if (!tidesMod) {
@@ -1119,12 +1197,19 @@ function bindUi() {
     if (!state.picked) await locate();
     refresh();
   });
-  $('gpsBtn').addEventListener('click', async () => {
-    state.picked = null;
-    state.mapCentred = false;
-    await locate();
-    refresh();
+  $('gpsBtn').addEventListener('click', () => goToPlace(null));
+  $('placeBar').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-place]');
+    if (!b) return;
+    const v = b.dataset.place;
+    if (v === 'gps') goToPlace(null);
+    else if (v === 'add') {
+      $('settings').hidden = false;
+      $('placeName').focus();
+      $('placeName').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else if (v !== 'here') goToPlace(savedPlaces()[+v]);
   });
+  window.addEventListener('places-changed', renderPlaceBar);
   $('frameSlider').addEventListener('input', (e) => { stopPlay(); showFrame(+e.target.value); });
   $('playBtn').addEventListener('click', togglePlay);
   $('marineZone').addEventListener('change', (e) => {
@@ -1194,9 +1279,14 @@ async function main() {
   setTab(new URLSearchParams(location.search).get('tab') || store.get('tab', 'local'), { remember: false });
   if (store.get('navyWaves', '')) setWaves(true);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  initScrollRail();
   const fromUrl = urlLocation();
+  const active = savedPlaces().find((p) => p.name === store.get('activePlace', null));
   if (fromUrl) state.picked = fromUrl;
-  else await locate();
+  else if (active) state.picked = { lat: active.lat, lon: active.lon, name: active.name };
+  renderPlaceBar();
+  if (!state.picked) await locate();
+  else locate();   // still learn GPS in the background for 'My location'
   refresh();
 }
 

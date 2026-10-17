@@ -1,6 +1,6 @@
 // App shell: network first so updates show up straight away, cache as the offline fallback.
 // Radar, model and map-tile requests always go to the network.
-const CACHE = 'nexthour-v22';
+const CACHE = 'nexthour-v23';
 const ASSETS = [
   './',
   './index.html',

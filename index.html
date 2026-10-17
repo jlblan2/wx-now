@@ -60,11 +60,14 @@
     </details>
   </section>
 
-  <nav id="tabs" class="tabs" aria-label="Sections">
-    <button data-tab="local">Local weather</button>
-    <button data-tab="storms">Hurricanes</button>
-    <button data-tab="seas">Seas &amp; swell</button>
-  </nav>
+  <div id="topbar" class="topbar">
+    <nav id="tabs" class="tabs" aria-label="Sections">
+      <button data-tab="local">Local weather</button>
+      <button data-tab="storms">Hurricanes</button>
+      <button data-tab="seas">Seas &amp; swell</button>
+    </nav>
+    <div id="placeBar" class="place-bar" role="group" aria-label="Places"></div>
+  </div>
 
   <section data-tab="local" class="card hero">
     <p id="place" class="place">&nbsp;</p>
@@ -227,6 +230,8 @@
     Not an official forecast — check the National Weather Service for warnings.
   </footer>
 </main>
+
+<div id="scrollRail" class="scroll-rail" aria-hidden="true"><div id="scrollThumb" class="scroll-thumb"></div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="app.js"></script>

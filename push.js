@@ -141,6 +141,7 @@ function addPlace() {
   const list = places().filter((p) => p.name !== name);
   list.push({ name, lat: +spot.lat.toFixed(4), lon: +spot.lon.toFixed(4) });
   store.set('places', list.slice(-10));
+  window.dispatchEvent(new Event('places-changed'));
   $('placeName').value = '';
   renderPush();
   syncPlaces();
@@ -148,6 +149,7 @@ function addPlace() {
 
 function removePlace(name) {
   store.set('places', places().filter((p) => p.name !== name));
+  window.dispatchEvent(new Event('places-changed'));
   renderPush();
   syncPlaces();
 }

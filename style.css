@@ -232,8 +232,8 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .isobar-label { color: #fff; font: 600 11px -apple-system, system-ui, sans-serif; text-align: center; text-shadow: 0 0 3px #000, 0 0 3px #000; background: none; border: none; }
 
 /* tabs */
-.tabs { display: flex; gap: 4px; position: sticky; top: calc(env(safe-area-inset-top) + 60px); z-index: 1050;
-  background: var(--bg); padding: 0 0 10px; }
+.topbar { position: sticky; top: calc(env(safe-area-inset-top) + 60px); z-index: 1050; background: var(--bg); padding: 0 0 8px; }
+.tabs { display: flex; gap: 4px; }
 .tabs button { flex: 1; background: var(--panel); color: var(--muted); border: 1px solid var(--border); border-radius: 10px;
   padding: 9px 4px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .tabs button.on { color: var(--text); border-color: var(--accent); background: var(--panel-2, #17304d); }
@@ -259,3 +259,15 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .tide-table span { display: inline-block; margin-right: 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tide-table .hi { color: var(--text); }
 .tide-table .lo { color: var(--muted); }
+
+/* saved places switcher */
+.place-bar { display: flex; gap: 6px; overflow-x: auto; padding-top: 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.place-bar::-webkit-scrollbar { display: none; }
+.place-bar .chip { flex: 0 0 auto; }
+.place-bar .chip.add { color: var(--accent); }
+
+/* scroll slider on the right edge (iPhone hides the normal scrollbar) */
+.scroll-rail { position: fixed; right: 0; width: 22px; z-index: 1040; touch-action: none; }
+.scroll-rail::before { content: ''; position: absolute; top: 0; bottom: 0; right: 4px; width: 4px; border-radius: 2px; background: rgba(127, 150, 179, 0.18); }
+.scroll-thumb { position: absolute; right: 2px; width: 8px; border-radius: 4px; background: rgba(127, 150, 179, 0.75); }
+.scroll-rail.dragging .scroll-thumb, .scroll-rail:hover .scroll-thumb { background: var(--accent); }
