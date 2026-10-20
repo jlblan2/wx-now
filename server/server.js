@@ -24,7 +24,8 @@ import { windForecast, windEvent, decideWind, windMessage } from './windalerts.j
 import { zoneOf } from './zones.js';
 import { tideStationFor, predictedExtremes, findExtremes, decideTides, tideMessage } from './tidealerts.js';
 import { floodLevels } from './highwater.js';
-import { refreshHail, hailNear, decideHail, radarHailMessage, warningHail, hailText, hailOutlook, outlookAt, decideOutlook, outlookMessage } from './hailalerts.js';
+import { refreshHail, hailNear, decideHail, radarHailMessage, warningHail, hailText, hailOutlook, spcOutlook, outlookAt, decideOutlook, outlookMessage } from './hailalerts.js';
+import { NEAR_MI, tornadoWarnings, distanceToPolygon, warningInfo, decideWarning, warningMessage, watchMessage, tornadoOutlookMessage } from './tornado.js';
 import { SURF_EVENTS, beachZoneOf, surfForecast, zoneRisk, decideRip, ripMessage } from './ripalerts.js';
 import { THUNDER_EVENTS, refreshLightning, lightningNear, decideLightning, lightningMessage } from './thunder.js';
 import { FOG_EVENTS, visibilityForecast, fogEvent, decideFog, fogMessage, pointAlerts } from './fogalerts.js';
@@ -311,6 +312,68 @@ async function windLoop() {
   setTimeout(windLoop, WIND_CHECK_MS);
 }
 
+// Tornadoes for saved places and the last location, every 2 minutes: NWS Tornado Warnings
+// covering or near each place, Tornado Watches there, and the SPC Day 1 tornado outlook.
+// tornadoMode: 2 = everything (default), 1 = warnings only, 0 = off.
+const TORNADO_CHECK_MS = 2 * 60000;
+
+async function tornadoLoop() {
+  try {
+    const warnings = await tornadoWarnings();
+    status.tornadoWarnings = warnings.length;
+    const spc = await spcOutlook('torn').catch(() => null);
+    let places = 0;
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const mode = sub.tornadoMode ?? 2;
+      if (!(mode > 0)) continue;
+      const st = sub.tornado = sub.tornado || {};
+      const sentIds = sub.marineSent = sub.marineSent || {};
+      for (const place of watchList(sub)) {
+        places++;
+        const name = place.name === 'Your last location' ? 'your location' : place.name;
+        const url = `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}`;
+        const s = st[place.key] = st[place.key] || {};
+        const sent = s.sent = s.sent || {};
+        for (const f of warnings) {
+          const p = f.properties || {};
+          const d = distanceToPolygon(place, f.geometry);
+          if (d > NEAR_MI) continue;
+          const info = warningInfo(p);
+          if (info.ended) continue;   // cancelled or expired
+          const kind = decideWarning(sent, info, d);
+          if (!kind) continue;
+          sentIds[p.id] = Date.parse(p.ends || p.expires) || Date.now() + 3600000;
+          const msg = warningMessage(kind, info, place, name, d, localTime(p.ends || p.expires), sub.metric);
+          console.log(`Tornado: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `tornado-${info.key}-${place.key}`, url });
+        }
+        if (mode < 2) continue;
+        for (const a of await pointAlerts(place.lat, place.lon).catch(() => [])) {
+          const q = a.properties || {};
+          if (q.event !== 'Tornado Watch' || sentIds[q.id]) continue;
+          sentIds[q.id] = Date.parse(q.ends || q.expires) || Date.now() + 86400000;
+          const msg = watchMessage(q, name, localTime(q.ends || q.expires));
+          console.log(`Tornado: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `nws-${q.id}`, url });
+        }
+        if (spc && decideOutlook(s.outlook = s.outlook || {}, outlookAt(spc, place), 5)) {
+          const msg = tornadoOutlookMessage(outlookAt(spc, place), name, await zoneOf(place.lat, place.lon));
+          console.log(`Tornado: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `tornado-outlook-${place.key}`, url });
+        }
+      }
+    }
+    saveSubs();
+    status.tornadoPlaces = places;
+    status.lastTornadoCheck = new Date().toISOString();
+    status.lastTornadoError = null;
+  } catch (e) {
+    status.lastTornadoError = e.message;
+    console.error('Tornado check failed:', e.message);
+  }
+  setTimeout(tornadoLoop, TORNADO_CHECK_MS);
+}
+
 // Hail for saved places and the last location, every 4 minutes: radar-estimated hail (MRMS
 // MESH), NWS warnings with hail of the chosen size, and the SPC Day 1 hail outlook.
 const HAIL_CHECK_MS = 4 * 60000;
@@ -341,7 +404,7 @@ async function hailLoop() {
         for (const a of await pointAlerts(place.lat, place.lon).catch(() => [])) {
           const q = a.properties || {};
           const inch = warningHail(q);
-          if (!/Severe Thunderstorm Warning|Tornado Warning/.test(q.event) || inch < minInch || sent[q.id]) continue;
+          if (q.event !== 'Severe Thunderstorm Warning' || inch < minInch || sent[q.id]) continue;
           sent[q.id] = Date.parse(q.ends || q.expires) || Date.now() + 86400000;
           const msg = { title: `${q.event} · ${name}`, body: `Hail up to ${hailText(inch, sub.metric)}. ${what(q.description) || q.headline || ''}${localTime(q.ends || q.expires)}`.trim() };
           console.log(`Hail: ${msg.title}: ${msg.body}`);
@@ -624,6 +687,7 @@ function cleanPlaces(places) {
 }
 
 const cleanFt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1.0);
+const cleanMode = (v) => ([0, 1, 2].includes(+v) ? +v : 2);
 const cleanIn = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1);
 const cleanLevel = (v) => ([0, 2, 3].includes(+v) ? +v : 3);
 const cleanMi = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(50, +v)) : 10);
@@ -700,6 +764,8 @@ const routes = {
       rip: prev.rip || {},
       hailIn: b.hailIn === undefined ? prev.hailIn ?? 1 : cleanIn(b.hailIn),
       hail: prev.hail || {},
+      tornadoMode: b.tornadoMode === undefined ? prev.tornadoMode ?? 2 : cleanMode(b.tornadoMode),
+      tornado: prev.tornado || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -730,6 +796,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, mode } — tornado alerts: 2 everything, 1 warnings only, 0 off.
+  'POST /api/tornado': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.tornadoMode = cleanMode(b.mode);
     saveSubs();
     return { ok: true };
   },
@@ -888,6 +963,7 @@ server.listen(PORT, '127.0.0.1', () => {
   thunderLoop();
   setTimeout(ripLoop, 2 * 60000);
   setTimeout(hailLoop, 30 * 1000);
+  tornadoLoop();
   setTimeout(tideLoop, 90 * 1000);   // after the start-up NOAA requests
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });

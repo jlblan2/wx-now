@@ -393,3 +393,47 @@ run('hail: radar hail near a place, bigger hail, quiet hour; NWS size; SPC outlo
 });
 
 console.log('All hail tests passed');
+
+// ---------- tornado alerts ----------
+import { distanceToPolygon, warningInfo, headingToward, decideWarning, warningMessage, watchMessage } from './tornado.js';
+
+run('tornado: polygon distance, warning details, nearby then covering, upgrade, no repeats', () => {
+  const home = { lat: 35.0, lon: -97.0 };
+  const box = (lat, lon, d) => ({ type: 'Polygon', coordinates: [[[lon - d, lat - d], [lon + d, lat - d], [lon + d, lat + d], [lon - d, lat + d], [lon - d, lat - d]]] });
+  assert.equal(distanceToPolygon(home, box(35, -97, 0.1)), 0, 'inside');
+  const west = box(35, -97.3, 0.1);   // east edge 0.2 deg (~11 mi) west of home
+  assert.equal(Math.round(distanceToPolygon(home, west)), 11);
+  const p = {
+    id: 'a1', headline: 'Tornado Warning issued May 20 at 4:12PM CDT', description: 'At 412 PM CDT, a severe thunderstorm capable of producing a tornado...',
+    ends: '2026-05-20T21:45:00-05:00',
+    parameters: {
+      VTEC: ['/O.NEW.KOUN.TO.W.0034.260520T2112Z-260520T2145Z/'], tornadoDetection: ['RADAR INDICATED'], maxHailSize: ['1.50'],
+      eventMotionDescription: ['2026-05-20T21:12:00-00:00...storm...270DEG...26KT...35.00,-97.30'],
+    },
+  };
+  const info = warningInfo(p);
+  assert.equal(info.key, 'KOUN.TO.W.0034');
+  assert.equal(info.level, 1);
+  assert.equal(info.ended, false);
+  assert.equal(warningInfo({ ...p, parameters: { ...p.parameters, VTEC: ['/O.CAN.KOUN.TO.W.0034.000000T0000Z-260520T2145Z/'] } }).ended, true);
+  assert.deepEqual([info.motion.toward, info.motion.mph], [90, 30]);
+  assert.equal(headingToward(info, home), true, 'moving east toward home');
+  const sent = {}, now = Date.parse('2026-05-20T21:13:00Z');
+  assert.equal(decideWarning(sent, info, 11, now), 'near');
+  assert.equal(decideWarning(sent, info, 9, now), null, 'still nearby');
+  assert.equal(decideWarning(sent, { ...info, level: 2 }, 0, now), 'in', 'now covers home');
+  assert.equal(decideWarning(sent, { ...info, level: 3 }, 0, now), 'upgrade', 'tornado emergency');
+  assert.equal(decideWarning(sent, { ...info, level: 3 }, 0, now), null);
+  assert.equal(decideWarning({}, info, 20, now), null, 'too far');
+  const near = warningMessage('near', info, home, 'Home', 11, ' until Wed 4:45 PM', false);
+  assert.equal(near.title, 'Tornado warning nearby · Home');
+  assert.equal(near.body, 'Tornado warning 11 mi W of Home. Tornado indicated by radar, moving E at 30 mph, heading toward Home. Be ready to take shelter. Hail up to 1.5 in. In effect until Wed 4:45 PM.');
+  const inside = warningMessage('in', info, home, 'Home', 0, ' until Wed 4:45 PM', false);
+  assert.equal(inside.title, 'TORNADO WARNING · Home');
+  assert.equal(inside.body, 'Take shelter now: lowest floor, small interior room, away from windows. On the water, get to shore and shelter. Tornado indicated by radar, moving E at 30 mph. Hail up to 1.5 in. In effect until Wed 4:45 PM.');
+  const emerg = warningInfo({ ...p, description: 'TORNADO EMERGENCY for Moore...' });
+  assert.equal(warningMessage('in', emerg, home, 'Home', 0, '', false).title, 'TORNADO EMERGENCY · Home');
+  assert.equal(watchMessage({ description: 'THIS IS A PARTICULARLY DANGEROUS SITUATION' }, 'Home', ' until Wed 10:00 PM').title, 'PDS Tornado Watch · Home');
+});
+
+console.log('All tornado tests passed');

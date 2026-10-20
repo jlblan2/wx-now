@@ -82,6 +82,24 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Tornado alerts: Settings > "Tornado alerts" (everything by default; or warnings only, or
+Off). For each saved place and your last location, checked every 2 minutes:
+- National Weather Service Tornado Warnings. When the warning covers the place:
+  "TORNADO WARNING - Home: Take shelter now: lowest floor, small interior room, away from
+  windows..." with whether the tornado was observed or seen on radar, and how fast and
+  which way it is moving. When a warning is within 15 miles but does not cover the place
+  yet: "Tornado warning nearby - Home: Tornado warning 11 mi W of Home ... moving E at
+  30 mph, heading toward Home. Be ready to take shelter." If the warning later covers the
+  place, or is upgraded to a "particularly dangerous" warning or a TORNADO EMERGENCY, you
+  get another alert. The NWS updates for the same warning do not repeat it.
+- Tornado Watches for the place (marked PDS when the NWS calls it a particularly
+  dangerous situation).
+- The Storm Prediction Center's daily tornado outlook: a heads-up when a place has a 5%
+  or higher chance of a tornado within 25 miles that day (again if the chance goes up).
+Waterspouts over the water come in Special Marine Warnings with the marine alerts.
+Tornado watches and warnings were part of the lightning and thunderstorm alerts before;
+they now come only with these tornado alerts.
+
 Hail alerts: Settings > "Hail alerts" (1 inch, quarter size, by default; also 0.75 in
 penny, 1.75 in golf ball, 2.75 in baseball, or Off). For each saved place and your last
 location:
@@ -115,8 +133,7 @@ location, every 5 minutes:
   "Lightning very close" if one comes within 3 miles; and "Lightning all clear" after 30
   minutes with no lightning in range (the 30-30 rule). The satellite places flashes to
   within a few miles, so treat distances as approximate.
-- National Weather Service Severe Thunderstorm and Tornado Watches and Warnings for the
-  place.
+- National Weather Service Severe Thunderstorm Watches and Warnings for the place.
 Special Marine Warnings (thunderstorms over the water) come with the marine alerts.
 
 Fog alerts: Settings > "Fog alerts" (1 nm by default; also 2, 0.5, 0.25 nm, or Off).
