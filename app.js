@@ -9,8 +9,7 @@ import { zonesByDistance, zoneFor, marineForecast, zoneGeometry } from './marine
 import { fetchModel, describe } from './model.js';
 import { useZoneFor, confirmZone, timeOf, hourOf, dayOf, dayHourOf, whenOf, zoneName, differsFromPhone } from './clock.js';
 import {
-  P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize,
-} from './forecast.js';
+  P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize, headline } from './forecast.js';
 import { initPush, reportLocation, pushEnabled, syncMarine, syncWaterTemp, alertServerUrl } from './push.js';
 import { secondOpinion } from './compare.js';
 import { initPassage, passageUnitsChanged, passageShown } from './passage.js';
@@ -115,7 +114,7 @@ async function refresh() {
       const series = blend(radar, model, q);
       const noun = precipNoun(model ? model.tempC : null);
       const summary = summarize(series, noun, radar && radar.echo === 0);
-      state.result = { loc, radar, model, series, summary, site, quality: q, noun };
+      state.result = { loc, radar, model, series, summary, site, quality: q, noun, t0: series.t0 || Date.now() };
       state.lastRefresh = Date.now();
       render();
       return summary;
@@ -148,7 +147,7 @@ function showSettings(open) {
 function render() {
   const r = state.result;
   if (!r) return;
-  $('summary').textContent = r.summary.text;
+  $('summary').innerHTML = headline(r.summary, r.noun, r.t0, timeOf);
   $('place').textContent = `${state.picked ? state.picked.name || 'Selected point' : 'Your location'} · ${fmtCoord(r.loc)}`;
   $('gpsBtn').hidden = !state.picked;
 
@@ -171,6 +170,9 @@ function render() {
     lines.push(['Wind', `From ${compass(c.windDir)} at ${fmtSpeed(c.wind)}, gusts ${fmtSpeed(c.gust)}`]);
   }
   const now = r.series[0];
+  if (r.summary.startConf || r.summary.stopConf) {
+    lines.push(['Timing', '"On time" is the chance the rain starts or stops within 5 minutes of the time shown, from the minute-by-minute rain chances.']);
+  }
   lines.push(['Right now', now.prob >= P_ON ? `${cap(intensityWord(now.intensity))} ${r.noun}, ${fmtRate(now.intensity)}` : `No ${r.noun}`]);
   if (r.radar) {
     const { vel, mf, grid } = r.radar;

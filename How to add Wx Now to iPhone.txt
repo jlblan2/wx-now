@@ -200,8 +200,12 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   6 ft, red = over 9 ft). During an Atlantic storm that threatens the US, a "Live
   forecast" choice appears with NHC's actual surge forecast. For coastal locations the
   details at the bottom also list "Storm surge risk (NHC)" by hurricane category.
-- The headline gives the next hour in plain words, for example
-  "Light rain starting in 12 min, stopping 20 min later".
+- The headline gives the next hour in plain words, with the local time of each change
+  and how likely that time is to be right, for example
+  "Light rain starting in 12 min (2:42 PM - 85% on time), stopping 28 min later
+  (3:10 PM - 85% on time)". "On time" means within 5 minutes of the time shown. It is
+  high when radar shows rain arriving or ending sharply, and low when the rain builds or
+  fades gradually, so the exact minute is uncertain.
 - The bar chart shows rain minute by minute. Faded bars mean the forecast is less
   certain; the dashed orange line is the chance of rain.
 - "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.
