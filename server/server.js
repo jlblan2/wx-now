@@ -25,6 +25,7 @@ import { zoneOf } from './zones.js';
 import { tideStationFor, predictedExtremes, findExtremes, decideTides, tideMessage } from './tidealerts.js';
 import { floodLevels } from './highwater.js';
 import { refreshHail, hailNear, decideHail, radarHailMessage, warningHail, hailText, hailOutlook, spcOutlook, outlookAt, decideOutlook, outlookMessage } from './hailalerts.js';
+import { NEAR_MI as FLOOD_NEAR_MI, floodWarnings, floodInfo, floodWarningMessage, floodWatchMessage, refreshRadarFlood, radarFloodNear, decideRadarFlood, radarFloodMessage, rainOutlookAt, decideRainOutlook, rainOutlookMessage } from './flood.js';
 import { NEAR_MI, tornadoWarnings, distanceToPolygon, warningInfo, decideWarning, warningMessage, watchMessage, tornadoOutlookMessage } from './tornado.js';
 import { SURF_EVENTS, beachZoneOf, surfForecast, zoneRisk, decideRip, ripMessage } from './ripalerts.js';
 import { THUNDER_EVENTS, refreshLightning, lightningNear, decideLightning, lightningMessage } from './thunder.js';
@@ -310,6 +311,77 @@ async function windLoop() {
     console.error('Wind check failed:', e.message);
   }
   setTimeout(windLoop, WIND_CHECK_MS);
+}
+
+// Flash floods for saved places and the last location, every 3 minutes: NWS Flash Flood
+// Warnings covering or near each place, Flash Flood Watches, radar rain against flash flood
+// guidance (every other check: the grid takes ~15 s of CPU), and the WPC Excessive Rainfall
+// Outlook. floodMode: 2 = everything (default), 1 = warnings only, 0 = off.
+const FLOOD_CHECK_MS = 3 * 60000;
+let floodRound = 0;
+
+async function floodLoop() {
+  try {
+    const warnings = await floodWarnings();
+    status.floodWarnings = warnings.length;
+    if (floodRound++ % 2 === 0) status.floodRadarCells = await refreshRadarFlood().catch((e) => { console.error('Flood radar:', e.message); return null; });
+    let places = 0;
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const mode = sub.floodMode ?? 2;
+      if (!(mode > 0)) continue;
+      const st = sub.flood = sub.flood || {};
+      const sentIds = sub.marineSent = sub.marineSent || {};
+      for (const place of watchList(sub)) {
+        places++;
+        const name = place.name === 'Your last location' ? 'your location' : place.name;
+        const url = `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}`;
+        const s = st[place.key] = st[place.key] || {};
+        const sent = s.sent = s.sent || {};
+        for (const f of warnings) {
+          const p = f.properties || {};
+          const d = distanceToPolygon(place, f.geometry);
+          if (d > FLOOD_NEAR_MI) continue;
+          const info = floodInfo(p);
+          if (info.ended) continue;
+          const kind = decideWarning(sent, { ...info, ends: p.ends || p.expires }, d, Date.now(), FLOOD_NEAR_MI);
+          if (!kind) continue;
+          sentIds[p.id] = Date.parse(p.ends || p.expires) || Date.now() + 3600000;
+          const msg = floodWarningMessage(kind, info, name, d, localTime(p.ends || p.expires));
+          console.log(`Flood: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `flood-${info.key}-${place.key}`, url });
+        }
+        if (mode < 2) continue;
+        for (const a of await pointAlerts(place.lat, place.lon).catch(() => [])) {
+          const q = a.properties || {};
+          if (q.event !== 'Flash Flood Watch' || sentIds[q.id]) continue;
+          sentIds[q.id] = Date.parse(q.ends || q.expires) || Date.now() + 86400000;
+          const msg = floodWatchMessage(name, localTime(q.ends || q.expires));
+          console.log(`Flood: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `nws-${q.id}`, url });
+        }
+        const near = radarFloodNear(place);
+        if (decideRadarFlood(s.radar = s.radar || {}, near)) {
+          const msg = radarFloodMessage(near, name);
+          console.log(`Flood: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `flood-radar-${place.key}`, url });
+        }
+        const o = await rainOutlookAt(place).catch(() => null);
+        if (o && decideRainOutlook(s.outlook = s.outlook || {}, o)) {
+          const msg = rainOutlookMessage(o, name, await zoneOf(place.lat, place.lon));
+          console.log(`Flood: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `flood-outlook-${place.key}`, url });
+        }
+      }
+    }
+    saveSubs();
+    status.floodPlaces = places;
+    status.lastFloodCheck = new Date().toISOString();
+    status.lastFloodError = null;
+  } catch (e) {
+    status.lastFloodError = e.message;
+    console.error('Flood check failed:', e.message);
+  }
+  setTimeout(floodLoop, FLOOD_CHECK_MS);
 }
 
 // Tornadoes for saved places and the last location, every 2 minutes: NWS Tornado Warnings
@@ -766,6 +838,8 @@ const routes = {
       hail: prev.hail || {},
       tornadoMode: b.tornadoMode === undefined ? prev.tornadoMode ?? 2 : cleanMode(b.tornadoMode),
       tornado: prev.tornado || {},
+      floodMode: b.floodMode === undefined ? prev.floodMode ?? 2 : cleanMode(b.floodMode),
+      flood: prev.flood || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -796,6 +870,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, mode } — flash flood alerts: 2 everything, 1 warnings only, 0 off.
+  'POST /api/flood': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.floodMode = cleanMode(b.mode);
     saveSubs();
     return { ok: true };
   },
@@ -964,6 +1047,7 @@ server.listen(PORT, '127.0.0.1', () => {
   setTimeout(ripLoop, 2 * 60000);
   setTimeout(hailLoop, 30 * 1000);
   tornadoLoop();
+  setTimeout(floodLoop, 60 * 1000);
   setTimeout(tideLoop, 90 * 1000);   // after the start-up NOAA requests
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });

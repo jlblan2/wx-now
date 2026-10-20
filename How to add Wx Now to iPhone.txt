@@ -82,6 +82,24 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Flash flood alerts: Settings > "Flash flood alerts" (everything by default; or warnings
+only, or Off). For each saved place and your last location, checked every 3 minutes:
+- National Weather Service Flash Flood Warnings. When the warning covers the place:
+  "FLASH FLOOD WARNING - Home: Flash flooding is happening... Move to higher ground now if
+  you are in a low spot or near a stream. Never drive or walk into flood water: turn
+  around, don't drown." When one is within 5 miles: "Flash flood warning nearby". You get
+  another alert if it later covers the place or is upgraded to a FLASH FLOOD EMERGENCY;
+  the NWS updates for the same warning do not repeat it.
+- Flash Flood Watches for the place.
+- Radar: when the rain over the last 1 to 6 hours within 5 miles reaches the amount that
+  causes flash flooding there (NOAA's flash flood guidance), for example "Rain at flash
+  flood levels - Home: Radar shows rain at 130% of the amount that causes flash
+  flooding, 2 mi S of Home...". Once per storm; quiet until 3 hours below that level.
+- The Weather Prediction Center's daily Excessive Rainfall Outlook: a heads-up when a
+  place is at Slight risk or higher (at least a 15% chance of flash flooding within 25
+  miles), again if the risk goes up.
+Radar flash flood checks cover the US mainland, not the Bahamas or Caribbean.
+
 Tornado alerts: Settings > "Tornado alerts" (everything by default; or warnings only, or
 Off). For each saved place and your last location, checked every 2 minutes:
 - National Weather Service Tornado Warnings. When the warning covers the place:

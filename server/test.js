@@ -437,3 +437,40 @@ run('tornado: polygon distance, warning details, nearby then covering, upgrade, 
 });
 
 console.log('All tornado tests passed');
+
+// ---------- flash flood alerts ----------
+import { floodInfo, floodWarningMessage, radarFloodNear, decideRadarFlood, radarFloodMessage, decideRainOutlook, rainOutlookMessage } from './flood.js';
+
+run('flash floods: warning details, nearby/covering, radar vs guidance, rainfall outlook', () => {
+  const p = {
+    id: 'f1', headline: 'Flash Flood Warning issued', description: '...FLASH FLOOD EMERGENCY FOR SOUTHEAST HOUSTON...',
+    parameters: { VTEC: ['/O.NEW.KHGX.FF.W.0102.261020T2000Z-261021T0000Z/'], flashFloodDetection: ['OBSERVED'], flashFloodDamageThreat: ['CATASTROPHIC'] },
+  };
+  const info = floodInfo(p);
+  assert.deepEqual([info.key, info.level, info.observed, info.ended], ['KHGX.FF.W.0102', 3, true, false]);
+  assert.equal(floodInfo({ ...p, description: '', parameters: { ...p.parameters, flashFloodDamageThreat: ['CONSIDERABLE'] } }).level, 2);
+  assert.equal(floodWarningMessage('in', info, 'Home', 0, ' until Tue 8:00 PM').title, 'FLASH FLOOD EMERGENCY · Home');
+  assert.equal(floodWarningMessage('near', { ...info, observed: false }, 'Home', 3.2, ' until Tue 8:00 PM').body,
+    'A flash flood warning covers an area 3 mi from Home. Flash flooding is expected (radar indicated) there: avoid low roads, creeks and underpasses. In effect until Tue 8:00 PM.');
+  const H = 3600000, now = Date.UTC(2026, 9, 20, 20), home = { lat: 29.7, lon: -95.3 };
+  const cell = (miSouth, pct) => [home.lat - miSouth / 69.05, home.lon, pct];
+  const near = radarFloodNear(home, [cell(2, 130), cell(8, 300)]);
+  assert.deepEqual([Math.round(near.mi), near.dir, near.pct], [2, 'S', 130], 'within 5 mi only');
+  const st = {};
+  assert.equal(decideRadarFlood(st, radarFloodNear(home, [cell(1, 90)]), now), null, 'below guidance');
+  assert.equal(decideRadarFlood(st, near, now), 'flood');
+  assert.equal(decideRadarFlood(st, near, now + H), null, 'same episode');
+  decideRadarFlood(st, null, now + 4 * H + 1);
+  assert.equal(decideRadarFlood(st, near, now + 5 * H), 'flood', 'new episode after 3 quiet hours');
+  assert.equal(radarFloodMessage(near, 'Home').body,
+    'Radar shows rain at 130% of the amount that causes flash flooding, 2 mi S of Home, over the last 1 to 6 hours. Streams and low roads may already be flooding: avoid them and be ready to move to higher ground.');
+  const so = {}, slight = { level: 2, name: 'Slight', pct: 15, end: '2026-10-21 12:00:00' };
+  assert.equal(decideRainOutlook(so, { level: 1, name: 'Marginal', pct: 5, end: slight.end }), false, 'marginal is too common');
+  assert.equal(decideRainOutlook(so, slight), true);
+  assert.equal(decideRainOutlook(so, slight), false);
+  assert.equal(decideRainOutlook(so, { ...slight, level: 3, name: 'Moderate', pct: 40 }), true, 'risk went up');
+  assert.equal(rainOutlookMessage(slight, 'Home', 'America/Chicago').body,
+    'The Weather Prediction Center rates the risk of excessive rain Slight (at least a 15% chance of flash flooding within 25 miles), through Wed 7 AM. Avoid low roads and creeks if heavy rain sets in.');
+});
+
+console.log('All flash flood tests passed');
