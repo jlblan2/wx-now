@@ -73,9 +73,10 @@ export function headingToward(info, place) {
 
 // `sent` maps warning key -> { stage: 1 nearby | 2 covering, level, until }. Returns 'in',
 // 'near', 'upgrade' or null, and records the send.
-export function decideWarning(sent, info, distMi, now = Date.now()) {
+// Also used for flash flood warnings, with their own nearby distance.
+export function decideWarning(sent, info, distMi, now = Date.now(), nearMi = NEAR_MI) {
   for (const [k, v] of Object.entries(sent)) if (v.until < now) delete sent[k];
-  const stage = distMi === 0 ? 2 : distMi <= NEAR_MI ? 1 : 0;
+  const stage = distMi === 0 ? 2 : distMi <= nearMi ? 1 : 0;
   if (!stage) return null;
   const prev = sent[info.key];
   const until = (Date.parse(info.ends) || now + 3600000) + 3600000;

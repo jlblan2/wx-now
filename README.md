@@ -90,12 +90,15 @@ lightning near each watched place, with a 30-minute all-clear, plus NWS severe t
 watches/warnings at the place (`POST /api/lightning`, miles). Hourly, `server/ripalerts.js` parses the NWS Surf Zone
 Forecast (SRF) for each watched place's beach zone (`/points` lookup) and alerts on moderate/high
 rip current risk, plus High Surf and Beach Hazards alerts (`POST /api/rip`). Every 4 minutes `server/hailalerts.js` runs
-`server/hail/mesh.py` (MRMS MESH_Max_30min from the public `noaa-mrms-pds` bucket; the 16-bit PNG
-inside the GRIB2 is decoded with Pillow, ~120 MB instead of ~340 MB with eccodes) and alerts on
+`server/mrms/mrms.py` on MRMS MESH_Max_30min (public `noaa-mrms-pds` bucket) and alerts on
 radar hail within 10 miles, NWS warnings with hail, and the SPC Day 1 hail outlook (`POST /api/hail`, inches). Every 2 minutes `server/tornado.js` checks
 all active NWS Tornado Warnings (polygon covering a watched place, or within 15 miles), tracked by
 VTEC event number so follow-up statements don't repeat; Tornado Watches at the place; and the SPC
-Day 1 tornado outlook (`POST /api/tornado`, mode 2 all / 1 warnings / 0 off). Status: `https://<server>/api/status`.
+Day 1 tornado outlook (`POST /api/tornado`, mode 2 all / 1 warnings / 0 off). Every 3 minutes `server/flood.js` checks NWS
+Flash Flood Warnings (covering or within 5 miles, VTEC-tracked), Flash Flood Watches, MRMS
+`FLASH_QPE_FFGMAX` (rain as % of flash flood guidance, >= 100% within 5 miles) and the WPC Day 1
+Excessive Rainfall Outlook (`POST /api/flood`). `server/mrms/mrms.py` decodes any MRMS product a PNG
+row at a time (~50 MB) for both the hail and flash flood grids. Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
 ## Coverage

@@ -1,6 +1,6 @@
 // Hail alerts for saved places and the last location, from three sources:
 // - radar: NOAA MRMS MESH (largest hail size estimated by radar in the last 30 minutes, every
-//   2 minutes; hail/mesh.py). Alerts when hail of the chosen size is within 10 miles, again if
+//   2 minutes; mrms/mrms.py). Alerts when hail of the chosen size is within 10 miles, again if
 //   much bigger hail appears, and goes quiet until an hour passes without any;
 // - NWS Severe Thunderstorm Warnings whose hail size reaches the chosen size (tornado warnings
 //   come with the tornado alerts, hail size included);
@@ -32,11 +32,11 @@ let gridTime = null;
 
 export function refreshHail(minMm = 15) {
   return new Promise((resolve, reject) => {
-    execFile('python3', [path.join(HERE, 'hail', 'mesh.py'), String(minMm)], { maxBuffer: 64 * 1024 * 1024, timeout: 3 * 60000 }, (err, out) => {
+    execFile('python3', [path.join(HERE, 'mrms', 'mrms.py'), 'MESH_Max_30min_00.50', String(minMm)], { maxBuffer: 64 * 1024 * 1024, timeout: 3 * 60000 }, (err, out) => {
       if (err) return reject(err);
       try {
         const j = JSON.parse(out);
-        cells = j.hail; gridTime = j.time;
+        cells = j.cells; gridTime = j.time;
         resolve({ cells: cells.length, time: gridTime });
       } catch (e) { reject(e); }
     });
