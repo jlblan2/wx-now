@@ -64,7 +64,7 @@ async function enable() {
     if (sub && store.get('pushKey', '') !== key) { await sub.unsubscribe(); sub = null; }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
     const here = currentSpot();
-    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true), highWaterFt: +store.get('pushHighWater', '1'), ...waterTempPrefs(), windKt: +store.get('pushWind', '25'), tideFt: +store.get('pushTide', '1'), fogNm: +store.get('pushFog', '1'), lightningMi: +store.get('pushLightning', '10'), ripLevel: +store.get('pushRip', '3') });
+    await api('/api/subscribe', { subscription: sub.toJSON(), places: places(), last: here, marine: marinePrefs(), outlook: store.get('pushOutlook', true), highWaterFt: +store.get('pushHighWater', '1'), ...waterTempPrefs(), windKt: +store.get('pushWind', '25'), tideFt: +store.get('pushTide', '1'), fogNm: +store.get('pushFog', '1'), lightningMi: +store.get('pushLightning', '10'), ripLevel: +store.get('pushRip', '3'), hailIn: +store.get('pushHail', '1') });
     store.set('pushKey', key);
     store.set('pushOn', true);
     lastSent = here ? { ...here, at: Date.now() } : null;
@@ -125,6 +125,16 @@ export async function syncWaterTemp() {
     if (sub) await api('/api/watertemp', { endpoint: sub.endpoint, f: p.waterTempF, metric: p.metric });
   } catch (e) {
     setMsg(`Could not update water temperature alerts on the alert server: ${e.message}`, true);
+  }
+}
+
+async function syncHail() {
+  if (!pushEnabled()) return;
+  try {
+    const sub = await subscription();
+    if (sub) await api('/api/hail', { endpoint: sub.endpoint, inch: +store.get('pushHail', '1') });
+  } catch (e) {
+    setMsg(`Could not update hail alerts on the alert server: ${e.message}`, true);
   }
 }
 
@@ -266,6 +276,8 @@ export function initPush(getSpot) {
   });
   $('pushHighWater').value = store.get('pushHighWater', '1');
   $('pushHighWater').addEventListener('change', (e) => { store.set('pushHighWater', e.target.value); syncHighWater(); });
+  $('pushHail').value = store.get('pushHail', '1');
+  $('pushHail').addEventListener('change', (e) => { store.set('pushHail', e.target.value); syncHail(); });
   $('pushRip').value = store.get('pushRip', '3');
   $('pushRip').addEventListener('change', (e) => { store.set('pushRip', e.target.value); syncRip(); });
   $('pushLightning').value = store.get('pushLightning', '10');

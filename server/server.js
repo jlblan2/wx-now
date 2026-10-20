@@ -24,6 +24,7 @@ import { windForecast, windEvent, decideWind, windMessage } from './windalerts.j
 import { zoneOf } from './zones.js';
 import { tideStationFor, predictedExtremes, findExtremes, decideTides, tideMessage } from './tidealerts.js';
 import { floodLevels } from './highwater.js';
+import { refreshHail, hailNear, decideHail, radarHailMessage, warningHail, hailText, hailOutlook, outlookAt, decideOutlook, outlookMessage } from './hailalerts.js';
 import { SURF_EVENTS, beachZoneOf, surfForecast, zoneRisk, decideRip, ripMessage } from './ripalerts.js';
 import { THUNDER_EVENTS, refreshLightning, lightningNear, decideLightning, lightningMessage } from './thunder.js';
 import { FOG_EVENTS, visibilityForecast, fogEvent, decideFog, fogMessage, pointAlerts } from './fogalerts.js';
@@ -310,6 +311,63 @@ async function windLoop() {
   setTimeout(windLoop, WIND_CHECK_MS);
 }
 
+// Hail for saved places and the last location, every 4 minutes: radar-estimated hail (MRMS
+// MESH), NWS warnings with hail of the chosen size, and the SPC Day 1 hail outlook.
+const HAIL_CHECK_MS = 4 * 60000;
+
+async function hailLoop() {
+  try {
+    const got = await refreshHail(15);
+    status.hailCells = got.cells;
+    const spc = await hailOutlook().catch(() => null);
+    let places = 0;
+    for (const [endpoint, sub] of Object.entries(subs)) {
+      const minInch = sub.hailIn ?? 1;
+      if (!(minInch > 0)) continue;
+      const st = sub.hail = sub.hail || {};
+      const sent = sub.marineSent = sub.marineSent || {};
+      for (const place of watchList(sub)) {
+        places++;
+        const name = place.name === 'Your last location' ? 'your location' : place.name;
+        const url = `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}`;
+        const s = st[place.key] = st[place.key] || {};
+        const near = hailNear(place);
+        const kind = decideHail(s, near, minInch);
+        if (kind) {
+          const msg = radarHailMessage(kind, near, name, sub.metric);
+          console.log(`Hail: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `hail-${place.key}`, url });
+        }
+        for (const a of await pointAlerts(place.lat, place.lon).catch(() => [])) {
+          const q = a.properties || {};
+          const inch = warningHail(q);
+          if (!/Severe Thunderstorm Warning|Tornado Warning/.test(q.event) || inch < minInch || sent[q.id]) continue;
+          sent[q.id] = Date.parse(q.ends || q.expires) || Date.now() + 86400000;
+          const msg = { title: `${q.event} · ${name}`, body: `Hail up to ${hailText(inch, sub.metric)}. ${what(q.description) || q.headline || ''}${localTime(q.ends || q.expires)}`.trim() };
+          console.log(`Hail: ${msg.title}: ${msg.body}`);
+          await push(endpoint, { ...msg, tag: `nws-${q.id}`, url });
+        }
+        if (spc) {
+          const o = outlookAt(spc, place);
+          if (decideOutlook(s.outlook = s.outlook || {}, o)) {
+            const msg = outlookMessage(o, name, await zoneOf(place.lat, place.lon));
+            console.log(`Hail: ${msg.title}: ${msg.body}`);
+            await push(endpoint, { ...msg, tag: `hail-outlook-${place.key}`, url });
+          }
+        }
+      }
+    }
+    saveSubs();
+    status.hailPlaces = places;
+    status.lastHailCheck = new Date().toISOString();
+    status.lastHailError = null;
+  } catch (e) {
+    status.lastHailError = e.message;
+    console.error('Hail check failed:', e.message);
+  }
+  setTimeout(hailLoop, HAIL_CHECK_MS);
+}
+
 // Rip currents for saved places and the last location, hourly: the NWS Surf Zone Forecast
 // risk for the place's beach zone, plus NWS High Surf / Beach Hazards alerts there (and Rip
 // Current Statements where no Surf Zone Forecast covers the place).
@@ -396,7 +454,8 @@ async function thunderLoop() {
           const q = a.properties || {};
           if (!THUNDER_EVENTS.has(q.event) || sent[q.id]) continue;
           sent[q.id] = Date.parse(q.ends || q.expires) || Date.now() + 86400000;
-          const msg = { title: `${q.event} · ${name}`, body: `${what(q.description) || q.headline || ''}${localTime(q.ends || q.expires)}`.trim() };
+          const hail = warningHail(q);
+          const msg = { title: `${q.event} · ${name}`, body: `${hail ? `Hail up to ${hailText(hail, sub.metric)}. ` : ''}${what(q.description) || q.headline || ''}${localTime(q.ends || q.expires)}`.trim() };
           console.log(`Thunder: ${msg.title}: ${msg.body}`);
           await push(endpoint, { ...msg, tag: `nws-${q.id}`, url: `./?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}` });
         }
@@ -565,6 +624,7 @@ function cleanPlaces(places) {
 }
 
 const cleanFt = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1.0);
+const cleanIn = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1);
 const cleanLevel = (v) => ([0, 2, 3].includes(+v) ? +v : 3);
 const cleanMi = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(50, +v)) : 10);
 const cleanNm = (v) => (Number.isFinite(+v) ? Math.max(0, Math.min(5, +v)) : 1);
@@ -638,6 +698,8 @@ const routes = {
       thunder: prev.thunder || {},
       ripLevel: b.ripLevel === undefined ? prev.ripLevel ?? 3 : cleanLevel(b.ripLevel),
       rip: prev.rip || {},
+      hailIn: b.hailIn === undefined ? prev.hailIn ?? 1 : cleanIn(b.hailIn),
+      hail: prev.hail || {},
       marineSent: prev.marineSent || {},
       stormState: prev.stormState || {},
       state: prev.state || {},
@@ -668,6 +730,15 @@ const routes = {
     const sub = subs[b.endpoint];
     if (!sub) throw new Error('Not subscribed');
     sub.highWaterFt = cleanFt(b.ft);
+    saveSubs();
+    return { ok: true };
+  },
+
+  // { endpoint, inch } — hail alert size in inches (0 = off).
+  'POST /api/hail': async (b) => {
+    const sub = subs[b.endpoint];
+    if (!sub) throw new Error('Not subscribed');
+    sub.hailIn = cleanIn(b.inch);
     saveSubs();
     return { ok: true };
   },
@@ -816,6 +887,7 @@ server.listen(PORT, '127.0.0.1', () => {
   fogLoop();
   thunderLoop();
   setTimeout(ripLoop, 2 * 60000);
+  setTimeout(hailLoop, 30 * 1000);
   setTimeout(tideLoop, 90 * 1000);   // after the start-up NOAA requests
   setTimeout(waterLevelLoop, 60000);   // after start-up checks
 });

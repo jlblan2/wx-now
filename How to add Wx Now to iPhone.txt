@@ -82,6 +82,21 @@ measured water runs that far above the predicted tide, another if it climbs a fu
 foot, and one when it reaches NOAA's minor, moderate or major coastal flood level.
 It stays quiet until the water drops back. Tapping it opens Seas & swell.
 
+Hail alerts: Settings > "Hail alerts" (1 inch, quarter size, by default; also 0.75 in
+penny, 1.75 in golf ball, 2.75 in baseball, or Off). For each saved place and your last
+location:
+- Hail on radar, checked every 4 minutes: NOAA's radar estimate of the largest hail in the
+  last 30 minutes (MRMS). You get an alert when hail of your size is within 10 miles, for
+  example "Hail detected - Home: Radar estimates hail up to 1.25 in (half dollar) 6 mi N
+  of Home...", another if much larger hail shows up, then nothing more until an hour
+  passes without hail. Radar estimates can run a little high.
+- National Weather Service Severe Thunderstorm and Tornado Warnings that expect hail of
+  your size. The warning's hail size is added to lightning/thunderstorm alerts too.
+- The Storm Prediction Center's daily hail outlook: a heads-up when a place is in an area
+  with a 15% or higher chance of hail 1 inch or larger within 25 miles that day (again if
+  the chance goes up), so you can get cars and boats under cover ahead of time.
+Radar hail covers the US mainland and nearby waters, not the Bahamas or Caribbean.
+
 Rip current alerts: Settings > "Rip current alerts" (High risk by default; also Moderate
 or high, or Off). Every hour the server reads the National Weather Service Surf Zone
 Forecast for the beach zone at each saved place and your last location: the rip current

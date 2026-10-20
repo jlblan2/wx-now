@@ -348,3 +348,48 @@ run('rip currents: Surf Zone Forecast parsing, alert once, higher, re-arm', () =
 });
 
 console.log('All rip current tests passed');
+
+// ---------- hail alerts ----------
+import { hailNear, decideHail, radarHailMessage, hailText, warningHail, outlookAt, decideOutlook, outlookMessage } from './hailalerts.js';
+
+run('hail: radar hail near a place, bigger hail, quiet hour; NWS size; SPC outlook', () => {
+  const M = 60000, now = Date.UTC(2026, 4, 20, 21);
+  const home = { lat: 35.0, lon: -97.0 };
+  const cell = (miNorth, mm) => [home.lat + miNorth / 69.05, home.lon, mm];
+  const near = hailNear(home, [cell(15, 60), cell(6, 30), cell(-4, 25)]);
+  assert.equal(Math.round(near.mi), 6, 'largest hail within 10 mi');
+  assert.equal(near.dir, 'N');
+  assert.equal(hailText(near.inch, false), '1.25 in (half dollar)');
+  const st = {};
+  assert.equal(decideHail(st, hailNear(home, [cell(3, 18)]), 1, now), null, 'smaller than the chosen size');
+  assert.equal(decideHail(st, near, 1, now), 'hail');
+  assert.equal(decideHail(st, near, 1, now + 4 * M), null, 'no repeat');
+  assert.equal(decideHail(st, hailNear(home, [cell(2, 52)]), 1, now + 8 * M), 'bigger');
+  assert.equal(decideHail(st, null, 1, now + 30 * M), null);
+  assert.equal(decideHail(st, near, 1, now + 40 * M), null, 'same storm within the hour');
+  decideHail(st, null, 1, now + 101 * M);
+  assert.equal(decideHail(st, near, 1, now + 105 * M), 'hail', 'new storm after a quiet hour');
+  assert.equal(radarHailMessage('hail', near, 'Home', false).body,
+    'Radar estimates hail up to 1.25 in (half dollar) 6 mi N of Home in the last 30 minutes. Move cars and boats under cover if you can, and stay indoors away from windows.');
+  assert.equal(warningHail({ parameters: { maxHailSize: ['1.75'] } }), 1.75);
+  assert.equal(hailText(1.75, false), '1.75 in (golf ball)');
+  const sq = (lat, lon, d) => [[[lon - d, lat - d], [lon + d, lat - d], [lon + d, lat + d], [lon - d, lat + d], [lon - d, lat - d]]];
+  const exp = '2026-05-21T12:00:00+00:00';
+  const fc = { features: [
+    { properties: { LABEL: '0.05', EXPIRE_ISO: exp }, geometry: { type: 'Polygon', coordinates: sq(35, -97, 3) } },
+    { properties: { LABEL: '0.15', EXPIRE_ISO: exp }, geometry: { type: 'MultiPolygon', coordinates: [sq(35, -97, 1)] } },
+    { properties: { LABEL: 'CIG1', EXPIRE_ISO: exp }, geometry: { type: 'Polygon', coordinates: sq(36, -97, 0.5) } },
+  ] };
+  const o = outlookAt(fc, home);
+  assert.deepEqual([o.prob, o.big], [15, false]);
+  assert.equal(outlookAt(fc, { lat: 37.5, lon: -97 }).prob, 5);
+  const so = {};
+  assert.equal(decideOutlook(so, o), true);
+  assert.equal(decideOutlook(so, o), false, 'once per outlook day');
+  const higher = { features: [...fc.features, { properties: { LABEL: '0.30', EXPIRE_ISO: exp }, geometry: { type: 'Polygon', coordinates: sq(35, -97, 0.5) } }] };
+  assert.equal(decideOutlook(so, outlookAt(higher, home)), true, 'risk went up');
+  assert.equal(outlookMessage(o, 'Home', 'America/Chicago').body,
+    'The Storm Prediction Center gives a 15% chance of hail 1 inch or larger within 25 miles, through Thu 7 AM. Plan to keep cars and boats under cover.');
+});
+
+console.log('All hail tests passed');
