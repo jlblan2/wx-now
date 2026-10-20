@@ -108,8 +108,8 @@ location:
   example "Hail detected - Home: Radar estimates hail up to 1.25 in (half dollar) 6 mi N
   of Home...", another if much larger hail shows up, then nothing more until an hour
   passes without hail. Radar estimates can run a little high.
-- National Weather Service Severe Thunderstorm and Tornado Warnings that expect hail of
-  your size. The warning's hail size is added to lightning/thunderstorm alerts too.
+- National Weather Service Severe Thunderstorm Warnings that expect hail of your size.
+  Thunderstorm and tornado warning alerts include the expected hail size too.
 - The Storm Prediction Center's daily hail outlook: a heads-up when a place is in an area
   with a 15% or higher chance of hail 1 inch or larger within 25 miles that day (again if
   the chance goes up), so you can get cars and boats under cover ahead of time.
