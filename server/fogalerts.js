@@ -72,8 +72,18 @@ export function fogMessage(ev, placeName, metric) {
   };
 }
 
-// Active NWS alerts covering a point (land or marine zone).
+// Active NWS alerts covering a point (land or marine zone). Cached 2 minutes, since several
+// alert checks ask about the same places.
+const pointCache = new Map();
 export async function pointAlerts(lat, lon) {
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`, hit = pointCache.get(key);
+  if (hit && Date.now() - hit.at < 2 * 60000) return hit.list;
+  const list = await fetchPointAlerts(lat, lon);
+  pointCache.set(key, { at: Date.now(), list });
+  return list;
+}
+
+async function fetchPointAlerts(lat, lon) {
   const r = await fetch(`https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lon.toFixed(4)}`, {
     headers: { ...UA, Accept: 'application/geo+json' },
   });

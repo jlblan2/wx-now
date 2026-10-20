@@ -89,7 +89,10 @@ forecast and NWS fog/smoke advisories (`alerts/active?point=`) at each saved pla
 lightning near each watched place, with a 30-minute all-clear, plus NWS severe thunderstorm and
 tornado watches/warnings at the place (`POST /api/lightning`, miles). Hourly, `server/ripalerts.js` parses the NWS Surf Zone
 Forecast (SRF) for each watched place's beach zone (`/points` lookup) and alerts on moderate/high
-rip current risk, plus High Surf and Beach Hazards alerts (`POST /api/rip`). Status: `https://<server>/api/status`.
+rip current risk, plus High Surf and Beach Hazards alerts (`POST /api/rip`). Every 4 minutes `server/hailalerts.js` runs
+`server/hail/mesh.py` (MRMS MESH_Max_30min from the public `noaa-mrms-pds` bucket; the 16-bit PNG
+inside the GRIB2 is decoded with Pillow, ~120 MB instead of ~340 MB with eccodes) and alerts on
+radar hail within 10 miles, NWS warnings with hail, and the SPC Day 1 hail outlook (`POST /api/hail`, inches). Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
 ## Coverage
