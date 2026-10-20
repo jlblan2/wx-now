@@ -2,7 +2,8 @@
 // - radar: NOAA MRMS MESH (largest hail size estimated by radar in the last 30 minutes, every
 //   2 minutes; hail/mesh.py). Alerts when hail of the chosen size is within 10 miles, again if
 //   much bigger hail appears, and goes quiet until an hour passes without any;
-// - NWS Severe Thunderstorm (and Tornado) Warnings whose hail size reaches the chosen size;
+// - NWS Severe Thunderstorm Warnings whose hail size reaches the chosen size (tornado warnings
+//   come with the tornado alerts, hail size included);
 // - the Storm Prediction Center's Day 1 hail outlook: a heads-up when a place is in a 15%+
 //   hail area (again if the risk goes up).
 import { execFile } from 'node:child_process';
@@ -83,16 +84,18 @@ export function warningHail(props) {
 
 // ---------- SPC Day 1 hail outlook ----------
 
-const SPC = 'https://www.spc.noaa.gov/products/outlook/day1otlk_hail.nolyr.geojson';
-let outlook = { at: 0, data: null };
-
-export async function hailOutlook() {
-  if (Date.now() - outlook.at < 15 * 60000 && outlook.data) return outlook.data;
-  const r = await fetch(SPC, { headers: { 'User-Agent': 'WxNow alert server (github.com/jlblan2/wx-now)' } });
+// SPC Day 1 probabilistic outlooks: 'hail' or 'torn'. Cached 15 minutes each.
+const outlooks = new Map();
+export async function spcOutlook(type) {
+  const hit = outlooks.get(type);
+  if (hit && Date.now() - hit.at < 15 * 60000) return hit.data;
+  const r = await fetch(`https://www.spc.noaa.gov/products/outlook/day1otlk_${type}.nolyr.geojson`, { headers: { 'User-Agent': 'WxNow alert server (github.com/jlblan2/wx-now)' } });
   if (!r.ok) throw new Error(`SPC ${r.status}`);
-  outlook = { at: Date.now(), data: await r.json() };
-  return outlook.data;
+  const data = await r.json();
+  outlooks.set(type, { at: Date.now(), data });
+  return data;
 }
+export const hailOutlook = () => spcOutlook('hail');
 
 function inRing(ring, lat, lon) {
   let inside = false;

@@ -3,7 +3,7 @@
 //   every 5 minutes). Alerts when lightning comes within the chosen distance of a watched
 //   place, again if it comes within 3 miles, and an all-clear after 30 minutes without any
 //   lightning in range (the 30-30 rule).
-// - NWS severe thunderstorm and tornado watches and warnings at the place.
+// - NWS severe thunderstorm watches and warnings at the place (tornadoes have their own alerts).
 import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +15,7 @@ const RECENT_MS = 15 * 60000;
 const CLEAR_MS = 30 * 60000;
 const CLOSE_MI = 3;
 const MI = 1.609344;
-export const THUNDER_EVENTS = new Set(['Severe Thunderstorm Warning', 'Severe Thunderstorm Watch', 'Tornado Warning', 'Tornado Watch']);
+export const THUNDER_EVENTS = new Set(['Severe Thunderstorm Warning', 'Severe Thunderstorm Watch']);   // tornadoes: tornado.js
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const compass = (deg) => COMPASS[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
 
