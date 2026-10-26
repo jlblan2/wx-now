@@ -10,7 +10,7 @@ import webpush from 'web-push';
 import { decodePng } from './png.js';
 import { setPngDecoder } from '../radar.js';
 import { fetchModel } from '../model.js';
-import { radarCoverage, runRadar, blend, summarize, precipNoun, cap } from '../forecast.js';
+import { radarCoverage, runRadar, blend, summarize, precipNoun, cap, fallDelay } from '../forecast.js';
 import { decide, newState } from './decide.js';
 import { activeStorms } from '../storms.js';
 import { stormAlerts } from './stormalerts.js';
@@ -122,7 +122,7 @@ function watchList(sub) {
 }
 
 async function forecastAt(loc) {
-  const { quality } = radarCoverage(loc);
+  const { site, quality } = radarCoverage(loc);
   const modelP = fetchModel(loc.lat, loc.lon).catch(() => null);
   let radar = null;
   if (quality > 0) {
@@ -130,7 +130,7 @@ async function forecastAt(loc) {
   }
   const model = await modelP;
   if (!radar && !model) return null;
-  const series = blend(radar, model, radar ? quality : 0);
+  const series = blend(radar, model, radar ? quality : 0, fallDelay(site.km, model ? model.tempC : null));
   const noun = precipNoun(model ? model.tempC : null);
   return { summary: summarize(series, noun, radar && radar.echo === 0), series, noun };
 }

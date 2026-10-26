@@ -9,7 +9,7 @@ import { zonesByDistance, zoneFor, marineForecast, zoneGeometry } from './marine
 import { fetchModel, describe } from './model.js';
 import { useZoneFor, confirmZone, timeOf, hourOf, dayOf, dayHourOf, whenOf, zoneName, differsFromPhone } from './clock.js';
 import {
-  P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize, headline } from './forecast.js';
+  P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize, headline, fallDelay } from './forecast.js';
 import { initPush, reportLocation, pushEnabled, syncMarine, syncWaterTemp, alertServerUrl } from './push.js';
 import { secondOpinion } from './compare.js';
 import { initPassage, passageUnitsChanged, passageShown } from './passage.js';
@@ -111,7 +111,7 @@ async function refresh() {
     }
     const show = (model) => {
       const q = radar ? quality : 0;
-      const series = blend(radar, model, q);
+      const series = blend(radar, model, q, fallDelay(site.km, model ? model.tempC : null));
       const noun = precipNoun(model ? model.tempC : null);
       const summary = summarize(series, noun, radar && radar.echo === 0);
       state.result = { loc, radar, model, series, summary, site, quality: q, noun, t0: series.t0 || Date.now() };
@@ -186,6 +186,11 @@ function render() {
     lines.push(['Doppler wind', '<span id="dopplerVal">Loading…</span>']);
     const age = Math.round(r.radar.age);
     lines.push(['Radar time', `${fmtTime(new Date(r.radar.now.time))} (${age} min ago)`]);
+    const fall = r.series.fall;
+    if (fall && fall.minutes >= 0.5) {
+      const up = metric() ? `${fall.heightKm.toFixed(1)} km` : `${Math.round(fall.heightKm * 3280.84 / 100) * 100} ft`;
+      lines.push(['Rain fall time', `Radar sees rain about ${up} up here (${fmtDist(r.site.km)} from ${r.site.id}); times allow ${Math.round(fall.minutes)} min for it to reach the ground`]);
+    }
     const c = r.radar.check;
     if (c && c.events >= 15 && Number.isFinite(c.tracked)) {
       const pct = (x) => `${Math.round(x * 100)}%`;
