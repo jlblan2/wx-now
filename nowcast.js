@@ -220,14 +220,16 @@ export function velocity(mf, x, y) {
 
 // Tracks every pair of fields about `sep` minutes apart and returns a motion field.
 // `fields` must be sorted oldest first.
-export function estimateMotion(fields, sep = 15) {
+// Pairs frames about `sep` minutes apart (within `tol`: single-radar scans are not on an exact
+// 5-minute schedule); trackPair uses each pair's actual separation.
+export function estimateMotion(fields, sep = 15, tol = 2.5) {
   if (!fields.length) return null;
   const { w, h, dx } = fields[0];
   let vecs = [];
   for (let i = 0; i < fields.length; i++) {
     for (let j = i + 1; j < fields.length; j++) {
       const dt = (fields[j].time - fields[i].time) / 60000;
-      if (Math.abs(dt - sep) <= 1) vecs = vecs.concat(trackPair(fields[i], fields[j], dt));
+      if (Math.abs(dt - sep) <= tol) vecs = vecs.concat(trackPair(fields[i], fields[j], dt));
     }
   }
   return buildMotionField(filterVectors(vecs, dx), w, h, dx);
@@ -336,7 +338,7 @@ export function csi(fc, obs, w, h, cx, cy, radius) {
 export function hindcast(fields, lead, cx, cy, radius) {
   const target = fields[fields.length - 1];
   const startTime = target.time - lead * 60000;
-  const si = fields.findIndex((f) => Math.abs(f.time - startTime) < 90000);
+  const si = fields.findIndex((f) => Math.abs(f.time - startTime) < 150000);
   if (si < 0) return null;
   const history = fields.slice(0, si + 1);
   const mf = estimateMotion(history);

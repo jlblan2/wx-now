@@ -474,3 +474,46 @@ run('flash floods: warning details, nearby/covering, radar vs guidance, rainfall
 });
 
 console.log('All flash flood tests passed');
+
+// ---------- local radar: bzip2 and Level III scans onto the grid ----------
+import { bunzip2 } from '../bzip2.js';
+import { scanToGrid, localSources } from '../level3.js';
+import { makeGrid, toPixel } from '../radar.js';
+import { fallDelay } from '../forecast.js';
+
+run('local radar: bzip2, scans onto the grid, TDWR merge, source choice, fall time', () => {
+  const sample = Buffer.from('QlpoOTFBWSZTWRj7Jm0AAP3/////////////////////////////////////////////wAGuAgS//9VVQJgJgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACTAATAAEwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASYACYAAmAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2qpQNGgaaGgGmmmIaaNA0NMgNNAaAGjQANDRoBpggaAZAADINGmTQADTQA0wjQaAMIAABoxGgNCPf2AQJA0EQV/yDIOhCEoUhaGP/Q1DkPRBEUSRNFEVRZFyolSKmVQZyqjQN7SMAEn9JCfEkJqGsbCsFZK0NpWxuK4V0byvD6khWApRYSxDgWMshZRxLMOQ5lnLQWktRay2DoOjqnUYJW4t5cC4lyLmOxdC6l2LuXggEkK9F7L4O5fS/DwX8wA4gJPOCMGYQwphjDmIMSNDyMZbUkJ6SQsWYwYJIT0T8c0kLGmOHsx5kDImSMmZQyo1JIT4ZYZEkJnSQn0pKSFTB+SQqAkhMBlH8oiSFADSkhPA3ECZczBmTNGbIIzhnTPGfNAaE0RBkIaM0hpTTGMY1jmPZBkWSZNlGVZZl2YZlmmbZxnWeZ9oGhaJo2kaVpmnahqWqatrGta5r2wbFsmzbRtW2bduG5bpu28b1vm/cBwXCcNxHFcZx3IclynLcxzXOc90HRdJ03UdV1nXdh2Xadt3Hdd533geF4njeR5Xmed6Hpep63se17nvfB8XyfN9H1fZ934fl+n7fx/X+F3JFOFCQGPsmbQ=', 'base64');
+  const expect = Buffer.concat([Buffer.from('WxNow radar test. '.repeat(40)), Buffer.from(Array.from({ length: 768 }, (_, i) => i % 256)), Buffer.from('A'.repeat(100))]);
+  assert.equal(Buffer.compare(Buffer.from(bunzip2(new Uint8Array(sample))), expect), 0, 'bzip2 round trip');
+
+  // A radar 20 km south of the grid centre with one rain cell 30 km due north of it.
+  const g = makeGrid(30.5, -81.5);
+  const src = { id: 'TST', lat: 30.5 - 20 / 111.2, lon: -81.5, rangeKm: 80 };
+  const radials = Array.from({ length: 360 }, (_, az) => {
+    const data = new Uint8Array(600);
+    if (az === 0 || az === 359) for (let k = 195; k < 205; k++) data[k] = 2 + (40 + 32) * 2;   // 40 dBZ at 29-31 km
+    if (az >= 80 && az <= 100) for (let k = 90; k < 120; k++) data[k] = 1;   // range folded around 15 km east
+    return { az, daz: 1, data };
+  });
+  const scan = { radials, nbins: 600, gateKm: 0.15, min: -32, inc: 0.5 };
+  const dbz = new Float32Array(g.w * g.h).fill(NaN), cov = new Uint8Array(g.w * g.h);
+  scanToGrid(g, src, scan, dbz, cov);
+  const at = (lat, lon) => { const p = toPixel(g, lat, lon); return Math.round(p.y) * g.w + Math.round(p.x); };
+  assert.equal(dbz[at(src.lat + 30 / 111.2, -81.5)], 40, 'rain cell where it belongs');
+  assert.ok(Number.isNaN(dbz[at(src.lat + 10 / 111.2, -81.5)]) && cov[at(src.lat + 10 / 111.2, -81.5)], 'no echo, but measured');
+  assert.equal(cov[at(src.lat, -81.5 + 15 / 96)], 0, 'range folded is left for the next source');
+  assert.equal(cov[at(src.lat + 100 / 111.2, -81.5)], 0, 'beyond range is left for the next source');
+  // merge: a weaker second reading does not replace, a stronger one does
+  const weak = { ...scan, radials: radials.map((r) => ({ ...r, data: r.data.map((v) => (v > 2 ? v - 20 : v)) })) };
+  const strong = { ...scan, radials: radials.map((r) => ({ ...r, data: r.data.map((v) => (v > 2 ? v + 20 : v)) })) };
+  scanToGrid(g, src, weak, dbz, cov, 'max', true);
+  assert.equal(dbz[at(src.lat + 30 / 111.2, -81.5)], 40);
+  scanToGrid(g, src, strong, dbz, cov, 'max', true);
+  assert.equal(dbz[at(src.lat + 30 / 111.2, -81.5)], 50);
+
+  assert.deepEqual(localSources(30.677, -81.447).map((s) => `${s.kind} ${s.id}`), ['nexrad JAX'], 'no TDWR near Fernandina');
+  assert.deepEqual(localSources(28.54, -81.38).map((s) => `${s.kind} ${s.id}`), ['tdwr MCO', 'nexrad MLB'], 'Orlando: airport TDWR first');
+  assert.ok(fallDelay(22, 20, 0.3).minutes < fallDelay(22, 20, 0.5).minutes, 'lower beam, shorter fall');
+});
+
+console.log('All local radar tests passed');
