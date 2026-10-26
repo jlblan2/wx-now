@@ -17,7 +17,10 @@ const COARSE = 4;            // downsampling factor for the first motion search
 const MIN_CORR = 0.5;        // weakest block correlation accepted as a real match
 const MOTION_SIGMA_KM = 35;  // smoothing length of the motion field
 const R0_KM = 2;             // neighbourhood radius at lead 0 ...
-const RGROW_KM = 0.22;       // ... growing by this much per minute of lead time
+// ... growing by this much per minute of lead time. 0.1 (was 0.22) with the 40% rain threshold in
+// forecast.js: tested on 320 airport cases (Sep-Oct 2026), it caught ~26 more of 160 rain starts
+// for ~9 more false alarms of 160 no-rain cases (CSI 0.33 -> 0.44).
+const RGROW_KM = 0.1;
 
 // Marshall-Palmer Z = 200 R^1.6, capped at 55 dBZ so hail does not imply absurd rain rates.
 export function dbzToRate(dbz) {

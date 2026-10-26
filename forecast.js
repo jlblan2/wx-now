@@ -12,7 +12,9 @@ import { modelRateAt } from './model.js';
 import { localSources, listScans, fetchScan, scanToGrid } from './level3.js';
 
 const HISTORY_MIN = 60;       // radar history fetched (motion uses the last 30 min, the self-check the rest)
-export const P_ON = 0.5, P_MAYBE = 0.25, P_OFF = 0.35;
+// Rain chance that counts as rain (P_ON; 0.4 with the slower-growing neighbourhood in nowcast.js,
+// see there), "possible" (P_MAYBE), and stopped (P_OFF, sustained for 5 minutes).
+export const P_ON = 0.4, P_MAYBE = 0.25, P_OFF = 0.35;
 
 const nextTick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -166,7 +168,7 @@ export function blend(radar, model, quality, fall = null) {
       // The model only resolves 15-minute steps, so on its own it never claims minute-level
       // certainty: these stay under P_ON and read as "possible".
       im = modelRateAt(model, t0 + m * 60000);
-      pm = im >= RAIN_RATE ? 0.45 : im >= 0.1 ? 0.25 : 0;
+      pm = im >= RAIN_RATE ? 0.35 : im >= 0.1 ? 0.25 : 0;
     } else if (radar) {
       q = 1; // nothing better to fall back on
     }
