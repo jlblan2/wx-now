@@ -276,6 +276,11 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   days' score for rain starts and stops, and the "% on time" in the headline is adjusted
   toward what actually happened for forecasts that said the same chance (more checked
   cases, more adjustment).
+  Catching showers vs false alarms: the rain threshold was tuned on 320 airport cases
+  (160 where rain started within the hour, 160 with rain on radar nearby but none at the
+  airport). The setting now used catches about 26 more of the 160 rain starts than
+  before, for about 9 more false alarms of the 160 dry cases; a slightly smaller share
+  of its rain forecasts turn out wrong (35% instead of 38%).
 - The bar chart shows rain minute by minute. Faded bars mean the forecast is less
   certain; the dashed orange line is the chance of rain.
 - "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.
