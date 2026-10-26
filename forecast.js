@@ -9,6 +9,7 @@ import {
   inDomain, nearestRadar, radarQuality,
 } from './radar.js';
 import { modelRateAt } from './model.js';
+import { localSources, listScans, fetchScan, scanToGrid } from './level3.js';
 
 const HISTORY_MIN = 60;       // radar history fetched (motion uses the last 30 min, the self-check the rest)
 export const P_ON = 0.5, P_MAYBE = 0.25, P_OFF = 0.35;
@@ -37,19 +38,84 @@ export function radarCoverage(loc) {
   return { site, quality: inDomain(loc.lat, loc.lon) ? radarQuality(site.km) : 0 };
 }
 
-export async function runRadar(loc) {
-  const latest = await latestFrameTime();
+// Frames from the national 5-minute mosaic (IEM N0Q), oldest first. `at` replays a past time.
+async function mosaicFields(grid, at) {
+  const latest = at ? Math.floor((at - 2 * 60000) / 300000) * 300000 : (await latestFrameTime()).getTime();
   const times = [];
   for (let m = HISTORY_MIN; m >= 0; m -= FRAME_MIN) times.push(new Date(latest - m * 60000));
-  const grid = makeGrid(loc.lat, loc.lon);
   const got = await Promise.allSettled(times.map((t) => fetchFrame(grid, t)));
-  pruneCache(latest - (HISTORY_MIN + 10) * 60000);
-  await nextTick();
-
+  if (!at) pruneCache(latest - (HISTORY_MIN + 10) * 60000);
   const fields = [];
   got.forEach((g, i) => {
     if (g.status === 'fulfilled') fields.push(makeField(g.value, grid.w, grid.h, grid.dx, times[i].getTime()));
   });
+  return fields;
+}
+
+// Frames from the most local radars (level3.js): the place's own radar scans, newest first
+// choice, about every 5 minutes back through the history; pixels beyond that radar's range
+// come from the next source, then from the mosaic at the nearest earlier 5-minute time.
+const SKEW_MS = 150000;
+async function localFields(grid, srcs, at) {
+  const to = at || Date.now(), from = to - (HISTORY_MIN + 8) * 60000;
+  const lists = await Promise.all(srcs.map((s) => listScans(s, from, to)));
+  const primary = lists[0];
+  if (!primary.length || to - primary[primary.length - 1].t > 15 * 60000) throw new Error(`no recent scans from ${srcs[0].id}`);
+  const newest = primary[primary.length - 1].t;
+  const pick = (list, t, skew) => {
+    let best = null;
+    for (const k of list) if (Math.abs(k.t - t) <= skew && (!best || Math.abs(k.t - t) < Math.abs(best.t - t))) best = k;
+    return best;
+  };
+  const plan = [];
+  for (let m = HISTORY_MIN; m >= 0; m -= FRAME_MIN) {
+    const k = pick(primary, newest - m * 60000, SKEW_MS);
+    if (k && !plan.some((p) => p.key === k.key)) plan.push({ key: k.key, t: k.t });
+  }
+  const mosaicLatest = at ? Math.floor((to - 2 * 60000) / 300000) * 300000 : (await latestFrameTime().catch(() => new Date(to))).getTime();
+  const frames = await Promise.all(plan.map(async (p) => {
+    const dbz = new Float32Array(grid.w * grid.h).fill(NaN), covered = new Uint8Array(grid.w * grid.h);
+    let time = p.t;
+    for (let s = 0; s < srcs.length; s++) {
+      const k = s === 0 ? p : pick(lists[s], p.t, 4 * 60000);
+      if (!k) continue;
+      const scan = await fetchScan(k.key).catch(() => null);
+      if (!scan) { if (s === 0) return null; continue; }
+      if (s === 0) time = scan.time;
+      // Inside a TDWR's range the NEXRAD reading is merged in (stronger wins): the TDWR's short
+      // wavelength loses signal behind heavy rain, which made it miss rain starts in testing.
+      scanToGrid(grid, srcs[s], scan, dbz, covered, 'max', s > 0 && srcs[0].kind === 'tdwr');
+    }
+    if (covered.some((c) => !c)) {   // fill the rest from the national mosaic
+      const mt = Math.min(mosaicLatest, Math.floor(time / 300000) * 300000);
+      const m = await fetchFrame(grid, new Date(mt)).catch(() => null);
+      if (m) for (let i = 0; i < dbz.length; i++) if (!covered[i]) dbz[i] = m[i];
+    }
+    return makeField(dbz, grid.w, grid.h, grid.dx, time);
+  }));
+  const fields = frames.filter(Boolean).sort((a, b) => a.time - b.time);
+  const scan = await fetchScan(primary[primary.length - 1].key);
+  return { fields, source: { kind: srcs[0].kind, id: srcs[0].id, km: srcs[0].km, elevDeg: scan.elevDeg, label: srcs[0].label, every: srcs[0].every } };
+}
+
+// opts.at: replay a past time (ms); opts.mosaicOnly: skip the local radars (for comparison).
+export async function runRadar(loc, opts = {}) {
+  const grid = makeGrid(loc.lat, loc.lon);
+  let fields = null, source = null;
+  const srcs = opts.mosaicOnly ? [] : localSources(loc.lat, loc.lon);
+  // Most local first; if a radar has no recent scans (outage, gaps in the feed), drop to the next.
+  for (let k = 0; k < srcs.length && !fields; k++) {
+    try {
+      ({ fields, source } = await localFields(grid, srcs.slice(k), opts.at));
+      if (fields.filter((f) => f.time >= fields[fields.length - 1].time - 30 * 60000).length < 4) fields = null;
+    } catch { fields = null; }
+  }
+  if (!fields) {
+    fields = await mosaicFields(grid, opts.at);
+    const site = nearestRadar(loc.lat, loc.lon);
+    source = { kind: 'mosaic', id: site.id, km: site.km, elevDeg: 0.5, label: 'national radar mosaic', every: 5 };
+  }
+  await nextTick();
   if (!fields.length) throw new Error('No radar frames could be loaded');
   const now = fields[fields.length - 1];
   const recent = fields.filter((f) => f.time >= now.time - 30 * 60000);
@@ -58,7 +124,7 @@ export async function runRadar(loc) {
   await nextTick();
   const mf = estimateMotion(recent);
   const p = toPixel(grid, loc.lat, loc.lon);
-  const age = Math.max(0, (Date.now() - now.time) / 60000);
+  const age = Math.max(0, ((opts.at || Date.now()) - now.time) / 60000);
   const pf = pointForecast(now, mf, p.x, p.y, Math.ceil(age) + 60);
 
   await nextTick();
@@ -67,7 +133,7 @@ export async function runRadar(loc) {
   let echo = 0;
   for (const r of now.rate) if (r >= RAIN_RATE) echo++;
   const vel = velocity(mf, p.x, p.y);
-  return { grid, fields, now, mf, pf, age, check, echo, point: p, vel };
+  return { grid, fields, now, mf, pf, age, check, echo, point: p, vel, source };
 }
 
 // Radar sees rain at the height of its lowest beam (0.5 degree tilt), which rises with
@@ -75,8 +141,8 @@ export async function runRadar(loc) {
 // about 0.6 km up at 50 km, 1.5 km at 100 km, 2.6 km at 150 km. The rain then has to fall
 // that far, at about 6 m/s (snow 1.5, sleet 3), so it reaches the ground a few minutes after
 // the radar shows it overhead. Returns { heightKm, minutes }.
-export function fallDelay(km, tempC) {
-  const ka = (4 / 3) * 6371, th = 0.5 * Math.PI / 180;
+export function fallDelay(km, tempC, elevDeg = 0.5) {
+  const ka = (4 / 3) * 6371, th = elevDeg * Math.PI / 180;
   const heightKm = Math.sqrt(km * km + ka * ka + 2 * km * ka * Math.sin(th)) - ka;
   const speed = tempC === null || tempC === undefined ? 6 : tempC <= 0 ? 1.5 : tempC <= 2 ? 3 : 6;
   return { heightKm, minutes: Math.min(15, heightKm * 1000 / speed / 60) };

@@ -111,7 +111,8 @@ async function refresh() {
     }
     const show = (model) => {
       const q = radar ? quality : 0;
-      const series = blend(radar, model, q, fallDelay(site.km, model ? model.tempC : null));
+      const rs = radar && radar.source;
+      const series = blend(radar, model, q, rs ? fallDelay(rs.km, model ? model.tempC : null, rs.elevDeg) : null);
       const noun = precipNoun(model ? model.tempC : null);
       const summary = summarize(series, noun, radar && radar.echo === 0);
       state.result = { loc, radar, model, series, summary, site, quality: q, noun, t0: series.t0 || Date.now() };
@@ -144,6 +145,14 @@ function showSettings(open) {
   $('settingsBtn').setAttribute('aria-expanded', String(open));
 }
 
+// e.g. "airport TDWR MCO, 14 mi away, new scan every minute" or "NEXRAD JAX's own scans, 20 mi away".
+function radarSourceText(s) {
+  if (!s) return '';
+  if (s.kind === 'tdwr') return `airport radar TDWR ${s.id}, ${fmtDist(s.km)} away, new scan every minute`;
+  if (s.kind === 'nexrad') return `${s.id} radar's own scans, ${fmtDist(s.km)} away`;
+  return `national radar mosaic, nearest radar ${s.id} ${fmtDist(s.km)} away`;
+}
+
 function render() {
   const r = state.result;
   if (!r) return;
@@ -159,7 +168,7 @@ function render() {
   } else if (r.quality < 1) {
     src = `Radar + weather model (edge of radar range, ${r.site.id} ${fmtDist(r.site.km)} away)`;
   } else {
-    src = `Radar nowcast (${r.site.id}, ${fmtDist(r.site.km)} away)`;
+    src = `Radar nowcast (${radarSourceText(r.radar.source)})`;
   }
   $('source').textContent = src;
 
@@ -189,7 +198,7 @@ function render() {
     const fall = r.series.fall;
     if (fall && fall.minutes >= 0.5) {
       const up = metric() ? `${fall.heightKm.toFixed(1)} km` : `${Math.round(fall.heightKm * 3280.84 / 100) * 100} ft`;
-      lines.push(['Rain fall time', `Radar sees rain about ${up} up here (${fmtDist(r.site.km)} from ${r.site.id}); times allow ${Math.round(fall.minutes)} min for it to reach the ground`]);
+      lines.push(['Rain fall time', `Radar sees rain about ${up} up here (${fmtDist(r.radar.source.km)} from ${r.radar.source.id}); times allow ${Math.round(fall.minutes)} min for it to reach the ground`]);
     }
     const c = r.radar.check;
     if (c && c.events >= 15 && Number.isFinite(c.tracked)) {

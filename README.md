@@ -31,6 +31,7 @@ chance of precipitation, wind and gusts).
 |---|---|
 | `nowcast.js` | Tracking and extrapolation engine (no browser APIs) |
 | `radar.js` | Fetches and decodes radar frames, radar-site distance |
+| `level3.js`, `bzip2.js` | The most local radar: each NEXRAD's own N0B scans and airport TDWR TZ0 scans (every minute) from NOAA's Level III feed on AWS, bzip2-decoded in the browser and put onto the forecast grid; the national mosaic fills in beyond their range |
 | `doppler.js` | Doppler wind arrows: each radar's VAD Wind Profile (Level III NVW) from NOAA's AWS archive |
 | `storms.js` | NHC Atlantic tropical storms (cone, track, wind field, watches/warnings) and per-place threat checks |
 | `surge.js` | NHC storm surge: planning maps by category, live surge forecast, risk at a point |
