@@ -235,12 +235,12 @@ export function estimateMotion(fields, sep = 15) {
 
 // Positions at each minute 0..minutes of the parcel that arrives at (x, y), traced
 // backwards through the motion field (midpoint steps).
-export function backTrajectory(mf, x, y, minutes) {
+export function backTrajectory(mf, x, y, minutes, speed = 1) {
   const xs = [x], ys = [y];
   for (let t = 1; t <= minutes; t++) {
     const a = velocity(mf, x, y);
-    const b = velocity(mf, x - a.u / 2, y - a.v / 2);
-    x -= b.u; y -= b.v;
+    const b = velocity(mf, x - a.u * speed / 2, y - a.v * speed / 2);
+    x -= b.u * speed; y -= b.v * speed;
     xs.push(x); ys.push(y);
   }
   return { xs, ys };
@@ -248,14 +248,16 @@ export function backTrajectory(mf, x, y, minutes) {
 
 // Minute-by-minute probability and intensity at grid point (x, y), for leads
 // 0..maxLead minutes after the field's time. `coverage` is the share of the
-// neighbourhood that lay inside the radar grid (1 = fully known).
-export function pointForecast(field, mf, x, y, maxLead) {
+// neighbourhood that lay inside the radar grid (1 = fully known). opts: r0 / grow (neighbourhood
+// radius in km and its growth per minute) and speed (motion scale), for tuning and tests.
+export function pointForecast(field, mf, x, y, maxLead, opts = {}) {
   const { w, h, dx, rate } = field;
-  const traj = backTrajectory(mf, x, y, maxLead);
+  const r0 = opts.r0 ?? R0_KM, grow = opts.grow ?? RGROW_KM;
+  const traj = backTrajectory(mf, x, y, maxLead, opts.speed ?? 1);
   const prob = [], intensity = [], coverage = [];
   for (let t = 0; t <= maxLead; t++) {
     const px = traj.xs[t], py = traj.ys[t];
-    const rkm = R0_KM + RGROW_KM * t, rpx = rkm / dx, sig = rpx / 2;
+    const rkm = r0 + grow * t, rpx = rkm / dx, sig = rpx / 2;
     const k = 1 / (2 * sig * sig);
     let wIn = 0, wOut = 0, wRain = 0, sR = 0;
     const x0 = Math.floor(px - rpx), x1 = Math.ceil(px + rpx);

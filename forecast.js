@@ -70,13 +70,28 @@ export async function runRadar(loc) {
   return { grid, fields, now, mf, pf, age, check, echo, point: p, vel };
 }
 
-export function blend(radar, model, quality) {
+// Radar sees rain at the height of its lowest beam (0.5 degree tilt), which rises with
+// distance from the radar as the Earth curves away (standard 4/3 Earth-radius refraction):
+// about 0.6 km up at 50 km, 1.5 km at 100 km, 2.6 km at 150 km. The rain then has to fall
+// that far, at about 6 m/s (snow 1.5, sleet 3), so it reaches the ground a few minutes after
+// the radar shows it overhead. Returns { heightKm, minutes }.
+export function fallDelay(km, tempC) {
+  const ka = (4 / 3) * 6371, th = 0.5 * Math.PI / 180;
+  const heightKm = Math.sqrt(km * km + ka * ka + 2 * km * ka * Math.sin(th)) - ka;
+  const speed = tempC === null || tempC === undefined ? 6 : tempC <= 0 ? 1.5 : tempC <= 2 ? 3 : 6;
+  return { heightKm, minutes: Math.min(15, heightKm * 1000 / speed / 60) };
+}
+
+// `fall` (from fallDelay) shifts the radar forecast later by the time the rain takes to
+// reach the ground.
+export function blend(radar, model, quality, fall = null) {
   const series = [];
   const t0 = Date.now();
+  const delay = fall ? fall.minutes : 0;
   for (let m = 0; m <= 60; m++) {
     let pr = 0, ir = 0, q = 0;
     if (radar) {
-      const lead = Math.min(radar.pf.prob.length - 1, Math.round(radar.age + m));
+      const lead = Math.max(0, Math.min(radar.pf.prob.length - 1, Math.round(radar.age + m - delay)));
       pr = radar.pf.prob[lead]; ir = radar.pf.intensity[lead];
       q = quality * radar.pf.coverage[lead];
     }
@@ -95,6 +110,7 @@ export function blend(radar, model, quality) {
     series.push({ m, prob, intensity });
   }
   series.t0 = t0;   // the clock time of minute 0
+  series.fall = radar ? fall : null;
   return series;
 }
 

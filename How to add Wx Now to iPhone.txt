@@ -256,6 +256,13 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   (3:10 PM - 85% on time)". "On time" means within 5 minutes of the time shown. It is
   high when radar shows rain arriving or ending sharply, and low when the rain builds or
   fades gradually, so the exact minute is uncertain.
+  How accurate are the times? Checked against 160 rain starts recorded to the minute at
+  Southeast airports in October 2026: on average the forecast start was right (median
+  1 minute early), but single showers scatter about +/-10 minutes, and about 4 in 10
+  started within 5 minutes of the time shown. Most of the scatter comes from showers
+  growing, shrinking or popping up as they move, which radar tracking cannot foresee.
+  Radar also sees rain aloft before it reaches you: the forecast allows for the fall
+  time (Details > "Rain fall time"), longer the farther you are from the radar.
 - The bar chart shows rain minute by minute. Faded bars mean the forecast is less
   certain; the dashed orange line is the chance of rain.
 - "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.
