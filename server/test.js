@@ -517,3 +517,40 @@ run('local radar: bzip2, scans onto the grid, TDWR merge, source choice, fall ti
 });
 
 console.log('All local radar tests passed');
+
+// ---------- daily forecast check against airport reports ----------
+import { rainEvents, scoreSummary, summarizeResults } from './verify.js';
+import { calibrateConf } from '../forecast.js';
+
+run('forecast check: METAR rain begin/end parsing, scoring, 30-day summary and calibration', () => {
+  const row = (valid, metar) => ({ station: 'JAX', lat: '30.49', lon: '-81.69', valid, metar });
+  const ev = rainEvents([
+    row('2026-10-25 01:56', 'KJAX 250156Z 02018G26KT 10SM BKN021 A3021 RMK AO2 RAB11E33 SLP229 P0001'),
+    row('2026-10-25 03:56', 'KJAX 250356Z 03016G25KT 6SM -RA A3021 RMK AO2 RAB47 SLP230'),
+    row('2026-10-25 04:56', 'KJAX 250456Z 04017G22KT 9SM A3021 RMK AO2 RAE55 SLP231'),
+    row('2026-10-25 06:10', 'KJAX 250610Z 04017G22KT 9SM -SHRA A3021 RMK AO2 SHRAB0605 SLP231'),
+  ]);
+  const iso = (t) => new Date(t).toISOString().slice(11, 16);
+  assert.deepEqual(ev.map((e) => `${e.kind} ${iso(e.t)}`), ['start 01:11', 'stop 01:33', 'start 03:47', 'stop 04:55'],
+    'starts after 90 dry minutes, stops after 10+ minutes of rain (the 05 rain began only 70 min after the last stop)');
+  const T = Date.UTC(2026, 9, 25, 3, 47), issue = T - 15 * 60000;
+  assert.deepEqual(scoreSummary({ kind: 'start', t: T }, { raining: false, start: 12, startConf: 60 }, issue), { err: -3, conf: 60 });
+  assert.deepEqual(scoreSummary({ kind: 'start', t: T }, { raining: true }, issue), { err: 'early', conf: null });
+  assert.deepEqual(scoreSummary({ kind: 'stop', t: T }, { raining: true, stop: null }, issue), { err: null, conf: null });
+  const now = Date.UTC(2026, 9, 26);
+  const events = [
+    ...[-3, 2, 4, 8, -12].map((err, i) => ({ kind: 'start', t: now - i * 86400000, err, conf: 60 })),
+    { kind: 'start', t: now, err: null, conf: null }, { kind: 'start', t: now, err: 'early', conf: null },
+    { kind: 'start', t: now - 40 * 86400000, err: 1, conf: 60 },   // older than 30 days: not counted
+    { kind: 'stop', t: now, err: 1, conf: 20 },
+  ];
+  const s = summarizeResults(events, now);
+  assert.deepEqual([s.starts.n, s.starts.forecast, s.starts.missed, s.starts.early, s.starts.within5, s.starts.within10, s.starts.typicalMin], [7, 5, 1, 1, 60, 80, 4]);
+  assert.deepEqual(s.calibration.start.map((c) => [c.n, c.actual]), [[0, null], [0, null], [5, 60], [0, null]]);
+  assert.deepEqual(s.calibration.stop.map((c) => [c.n, c.actual]), [[1, 100], [0, null], [0, null], [0, null]]);
+  assert.equal(calibrateConf(85, [{ lo: 70, hi: 101, n: 45, actual: 40 }]), 50, 'mostly the measurement once there are many cases');
+  assert.equal(calibrateConf(85, [{ lo: 70, hi: 101, n: 3, actual: 40 }]), 80, 'mostly the stated chance with few cases');
+  assert.equal(calibrateConf(85, null), 85);
+});
+
+console.log('All forecast check tests passed');

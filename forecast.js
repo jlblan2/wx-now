@@ -206,9 +206,22 @@ function timingConf(series, m, rising) {
 // to be right (within TIMING_WINDOW minutes), e.g.
 // "Light rain starting in 12 min (3:42 PM · 70% on time)". timeOf formats a time in the
 // selected place's zone.
-export function headline(s, noun, t0, timeOf) {
+// Blends a stated "on time" chance toward what the nightly airport check measured for
+// forecasts that stated a similar chance (bins from /api/verification): the more checked
+// cases, the more weight the measurement gets. Rounded to 5%.
+export function calibrateConf(conf, bins, prior = 15) {
+  if (!conf || !bins) return conf;
+  const b = bins.find((x) => conf >= x.lo && conf < x.hi);
+  if (!b || !b.n || b.actual === null) return conf;
+  const v = (conf * prior + b.actual * b.n) / (prior + b.n);
+  return Math.max(5, Math.min(95, Math.round(v / 5) * 5));
+}
+
+// calib: { start: bins, stop: bins } from the airport check, or null.
+export function headline(s, noun, t0, timeOf, calib = null) {
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const at = (m, conf) => ` <span class="when">(${timeOf(t0 + m * 60000)}${conf ? ` · ${conf}% on time` : ''})</span>`;
+  s = { ...s, startConf: calibrateConf(s.startConf, calib && calib.start), stopConf: calibrateConf(s.stopConf, calib && calib.stop) };
   const Word = s.word ? cap(s.word) : '';
   if (s.raining && s.stop) return `${Word} ${noun} stopping in ${s.stop} min${at(s.stop, s.stopConf)}`;
   if (!s.raining && s.start > 0 && s.word) {
