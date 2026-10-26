@@ -84,7 +84,24 @@ function mapFrames(radar) {
   return frames;
 }
 
+// The nightly forecast check from the alert server (score + "on time" calibration), kept for
+// six hours. Re-renders when it arrives.
+async function loadVerify() {
+  const cached = store.get('verify', null);
+  if (cached && Date.now() - cached.fetched < 6 * 3600000) { state.verify = cached; return; }
+  const server = alertServerUrl();
+  if (!server) return;
+  try {
+    const r = await fetch(`${server}/api/verification`);
+    if (!r.ok) return;
+    state.verify = { ...(await r.json()), fetched: Date.now() };
+    store.set('verify', state.verify);
+    render();
+  } catch { /* keep going without it */ }
+}
+
 async function refresh() {
+  loadVerify();
   if (state.busy) return;
   const loc = state.picked || state.gps;
   if (!loc) {
@@ -156,7 +173,7 @@ function radarSourceText(s) {
 function render() {
   const r = state.result;
   if (!r) return;
-  $('summary').innerHTML = headline(r.summary, r.noun, r.t0, timeOf);
+  $('summary').innerHTML = headline(r.summary, r.noun, r.t0, timeOf, state.verify && state.verify.calibration);
   $('place').textContent = `${state.picked ? state.picked.name || 'Selected point' : 'Your location'} · ${fmtCoord(r.loc)}`;
   $('gpsBtn').hidden = !state.picked;
 
@@ -180,7 +197,7 @@ function render() {
   }
   const now = r.series[0];
   if (r.summary.startConf || r.summary.stopConf) {
-    lines.push(['Timing', '"On time" is the chance the rain starts or stops within 5 minutes of the time shown, from the minute-by-minute rain chances.']);
+    lines.push(['Timing', `"On time" is the chance the rain starts or stops within 5 minutes of the time shown, from the minute-by-minute rain chances${state.verify ? ', adjusted by the nightly check below' : ''}.`]);
   }
   lines.push(['Right now', now.prob >= P_ON ? `${cap(intensityWord(now.intensity))} ${r.noun}, ${fmtRate(now.intensity)}` : `No ${r.noun}`]);
   if (r.radar) {
@@ -214,6 +231,13 @@ function render() {
     if (sr) lines.push(['Storm surge risk (NHC)', sr]);
   }
   lines.push(['Local time', `${timeOf(Date.now())} ${zoneName()}${differsFromPhone() ? ' (all times here are local to this place)' : ''}`]);
+  const v = state.verify;
+  if (v && v.starts && v.starts.forecast >= 10) {
+    const st = v.starts, sp = v.stops;
+    lines.push(['Forecast check', `Last ${v.days} days, replayed nightly against rain times logged by ${v.stations || 30} Southeast airports: ` +
+      `rain starts within 5 min ${st.within5}% and within 10 min ${st.within10}% of the time (${st.forecast} forecast, ${st.missed} not foreseen)` +
+      (sp && sp.forecast >= 10 ? `; stops within 5 min ${sp.within5}%, within 10 min ${sp.within10}%` : '') + '.']);
+  }
   lines.push(['Updated', fmtTime(new Date(state.lastRefresh))]);
   $('details').innerHTML = lines.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
   if (r.radar && r.radar.doppler) showDopplerDetail(r);

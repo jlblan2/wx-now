@@ -270,6 +270,12 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   of rain starts are showers that pop up from nothing, which radar tracking cannot
   foresee. Radar also sees rain aloft before it reaches you: the forecast allows for
   the fall time (Details > "Rain fall time"), longer the farther you are from the radar.
+  Checked every night: at 3:30 AM Eastern the alert server replays the forecast against
+  the minutes rain began and ended at 30 Southeast airports the day before, as the app
+  would have made it 15 minutes earlier. Details > "Forecast check" shows the last 30
+  days' score for rain starts and stops, and the "% on time" in the headline is adjusted
+  toward what actually happened for forecasts that said the same chance (more checked
+  cases, more adjustment).
 - The bar chart shows rain minute by minute. Faded bars mean the forecast is less
   certain; the dashed orange line is the chance of rain.
 - "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.

@@ -98,7 +98,10 @@ VTEC event number so follow-up statements don't repeat; Tornado Watches at the p
 Day 1 tornado outlook (`POST /api/tornado`, mode 2 all / 1 warnings / 0 off). Every 3 minutes `server/flood.js` checks NWS
 Flash Flood Warnings (covering or within 5 miles, VTEC-tracked), Flash Flood Watches, MRMS
 `FLASH_QPE_FFGMAX` (rain as % of flash flood guidance, >= 100% within 5 miles) and the WPC Day 1
-Excessive Rainfall Outlook (`POST /api/flood`). `server/mrms/mrms.py` decodes any MRMS product a PNG
+Excessive Rainfall Outlook (`POST /api/flood`). `server/mrms/mrms.py` decodes any MRMS product a PNG Nightly (after 07:30 UTC) `server/verify.js` replays the rain nowcast 15 minutes before
+each rain begin/end logged in METAR remarks (RAB/RAE) at 30 Southeast airports the day before
+(IEM ASOS archive + archived Level III scans), keeps 60 days in `verification.json`, and serves the
+30-day score and per-chance calibration at `/api/verification`; the app adjusts its "% on time" with it.
 row at a time (~50 MB) for both the hail and flash flood grids. Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 
