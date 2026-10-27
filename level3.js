@@ -117,6 +117,7 @@ export async function listScans(src, from, to = Date.now()) {
       const xml = await (await fetchTimeout(`${BUCKET}/?list-type=2&prefix=${prefix}`, 15000)).text();
       list = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)].map((m) => m[1]);
       listCache.set(prefix, { at: Date.now(), keys: list });
+      if (listCache.size > 300) listCache.delete(listCache.keys().next().value);
     }
     keys.push(...list);
   }

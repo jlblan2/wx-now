@@ -140,6 +140,7 @@ let decodePng = async (bytes, w, h) => {
 export function setPngDecoder(fn) { decodePng = fn; }
 
 const cache = new Map();
+const MAX_FRAMES = 100;   // ~36 MB; replays of past times (forecast check) would otherwise pile up
 
 // Reflectivity (dBZ) for every grid pixel at `time`; NaN where there is no echo.
 export async function fetchFrame(g, time) {
@@ -154,6 +155,7 @@ export async function fetchFrame(g, time) {
     if (idx >= 1 && idx <= 244) dbz[i] = -32 + 0.5 * idx;
   }
   cache.set(key, dbz);
+  while (cache.size > MAX_FRAMES) cache.delete(cache.keys().next().value);
   return dbz;
 }
 
