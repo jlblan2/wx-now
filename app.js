@@ -47,6 +47,10 @@ const state = {
 const metric = () => state.units === 'metric';
 const fmtRate = (mm) => metric() ? `${mm.toFixed(mm < 10 ? 1 : 0)} mm/h` : `${(mm / 25.4).toFixed(2)} in/h`;
 const fmtDist = (km) => metric() ? `${Math.round(km)} km` : `${Math.round(km * 0.621371)} mi`;
+const fmtArea = (km2) => {
+  const v = metric() ? km2 : km2 * 0.386102, r = v < 100 ? Math.round(v) : Number(v.toPrecision(2));
+  return `${r.toLocaleString()} ${metric() ? 'sq km' : 'sq mi'}`;
+};
 const fmtSpeed = (kmh) => metric() ? `${Math.round(kmh)} km/h` : `${Math.round(kmh * 0.621371)} mph`;
 const fmtTemp = (c) => metric() ? `${Math.round(c)}°C` : `${Math.round(c * 9 / 5 + 32)}°F`;
 const fmtTime = (d) => timeOf(d);   // local time at the selected place
@@ -182,6 +186,9 @@ function render() {
       lines.push(['Storm motion (tracked)', kmh < 3 ? 'Nearly stationary' : `Toward ${toward} at ${fmtSpeed(kmh)}`]);
     } else {
       lines.push(['Storm motion', r.radar.echo ? 'Not enough rain nearby to track' : 'No rain on radar nearby']);
+    }
+    if (r.radar.clutterKm2 >= 100) {
+      lines.push(['Radar clutter', `Ignored ${fmtArea(r.radar.clutterKm2)} of still echo that has not moved in the last hour (usually the beam hitting the ground on calm nights, or birds and insects)`]);
     }
     lines.push(['Doppler wind', '<span id="dopplerVal">Loading…</span>']);
     const age = Math.round(r.radar.age);

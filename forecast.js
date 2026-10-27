@@ -2,7 +2,7 @@
 // blending with the weather model, and the plain-English summary.
 
 import {
-  RAIN_RATE, makeField, estimateMotion, pointForecast, hindcast, velocity,
+  RAIN_RATE, makeField, estimateMotion, pointForecast, hindcast, velocity, removeClutter,
 } from './nowcast.js';
 import {
   FRAME_MIN, makeGrid, toPixel, fetchFrame, latestFrameTime, pruneCache,
@@ -46,17 +46,27 @@ export async function runRadar(loc) {
   pruneCache(latest - (HISTORY_MIN + 10) * 60000);
   await nextTick();
 
-  const fields = [];
+  let fields = [];
   got.forEach((g, i) => {
     if (g.status === 'fulfilled') fields.push(makeField(g.value, grid.w, grid.h, grid.dx, times[i].getTime()));
   });
   if (!fields.length) throw new Error('No radar frames could be loaded');
-  const now = fields[fields.length - 1];
-  const recent = fields.filter((f) => f.time >= now.time - 30 * 60000);
-  if (recent.length < 4) throw new Error('Too few recent radar frames to track storms');
+  let now = fields[fields.length - 1];
+  const recentOf = (fs) => fs.filter((f) => f.time >= now.time - 30 * 60000);
+  if (recentOf(fields).length < 4) throw new Error('Too few recent radar frames to track storms');
 
   await nextTick();
-  const mf = estimateMotion(recent);
+  let mf = estimateMotion(recentOf(fields));
+  // Drop still, persistent clutter, then track again without it (clutter drags motion to zero).
+  const clean = removeClutter(fields, mf);
+  let clutterKm2 = 0;
+  if (clean) {
+    fields = clean.fields;
+    now = fields[fields.length - 1];
+    clutterKm2 = Math.round(clean.removed * grid.dx * grid.dx);
+    await nextTick();
+    mf = estimateMotion(recentOf(fields));
+  }
   const p = toPixel(grid, loc.lat, loc.lon);
   const age = Math.max(0, (Date.now() - now.time) / 60000);
   const pf = pointForecast(now, mf, p.x, p.y, Math.ceil(age) + 60);
@@ -67,7 +77,7 @@ export async function runRadar(loc) {
   let echo = 0;
   for (const r of now.rate) if (r >= RAIN_RATE) echo++;
   const vel = velocity(mf, p.x, p.y);
-  return { grid, fields, now, mf, pf, age, check, echo, point: p, vel };
+  return { grid, fields, now, mf, pf, age, check, echo, point: p, vel, clutterKm2 };
 }
 
 export function blend(radar, model, quality) {
