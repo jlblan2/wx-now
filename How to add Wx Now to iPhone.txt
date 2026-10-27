@@ -256,31 +256,6 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   (3:10 PM - 85% on time)". "On time" means within 5 minutes of the time shown. It is
   high when radar shows rain arriving or ending sharply, and low when the rain builds or
   fades gradually, so the exact minute is uncertain.
-  Which radar? Always the most local one: within 60 km of an airport Terminal Doppler
-  Weather Radar (TDWR: Orlando, Miami, Fort Lauderdale, Tampa, Atlanta and others) its
-  scans, new every minute and from a lower beam, merged with the nearest NEXRAD (the
-  stronger reading wins, because a TDWR loses signal behind heavy rain); elsewhere the
-  nearest NEXRAD's own scans (every 4-6 minutes, 250 m detail). The national mosaic only
-  fills in farther out, or if a radar's feed is down. The headline line under the radar
-  map names the radar in use, and Details shows how old its newest scan is.
-  How accurate are the times? Checked against rain starts recorded to the minute at
-  Southeast airports (September-October 2026): with the nearest NEXRAD's own scans,
-  46-60% of forecast starts came within 5 minutes and about 75% within 10 minutes (the
-  national mosaic: about 35% and 60%). Single showers still scatter, and about a third
-  of rain starts are showers that pop up from nothing, which radar tracking cannot
-  foresee. Radar also sees rain aloft before it reaches you: the forecast allows for
-  the fall time (Details > "Rain fall time"), longer the farther you are from the radar.
-  Checked every night: at 3:30 AM Eastern the alert server replays the forecast against
-  the minutes rain began and ended at 30 Southeast airports the day before, as the app
-  would have made it 15 minutes earlier. Details > "Forecast check" shows the last 30
-  days' score for rain starts and stops, and the "% on time" in the headline is adjusted
-  toward what actually happened for forecasts that said the same chance (more checked
-  cases, more adjustment).
-  Catching showers vs false alarms: the rain threshold was tuned on 320 airport cases
-  (160 where rain started within the hour, 160 with rain on radar nearby but none at the
-  airport). The setting now used catches about 26 more of the 160 rain starts than
-  before, for about 9 more false alarms of the 160 dry cases; a slightly smaller share
-  of its rain forecasts turn out wrong (35% instead of 38%).
 - The bar chart shows rain minute by minute. Faded bars mean the forecast is less
   certain; the dashed orange line is the chance of rain.
 - "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.

@@ -17,10 +17,7 @@ const COARSE = 4;            // downsampling factor for the first motion search
 const MIN_CORR = 0.5;        // weakest block correlation accepted as a real match
 const MOTION_SIGMA_KM = 35;  // smoothing length of the motion field
 const R0_KM = 2;             // neighbourhood radius at lead 0 ...
-// ... growing by this much per minute of lead time. 0.1 (was 0.22) with the 40% rain threshold in
-// forecast.js: tested on 320 airport cases (Sep-Oct 2026), it caught ~26 more of 160 rain starts
-// for ~9 more false alarms of 160 no-rain cases (CSI 0.33 -> 0.44).
-const RGROW_KM = 0.1;
+const RGROW_KM = 0.22;       // ... growing by this much per minute of lead time
 
 // Marshall-Palmer Z = 200 R^1.6, capped at 55 dBZ so hail does not imply absurd rain rates.
 export function dbzToRate(dbz) {
@@ -223,16 +220,14 @@ export function velocity(mf, x, y) {
 
 // Tracks every pair of fields about `sep` minutes apart and returns a motion field.
 // `fields` must be sorted oldest first.
-// Pairs frames about `sep` minutes apart (within `tol`: single-radar scans are not on an exact
-// 5-minute schedule); trackPair uses each pair's actual separation.
-export function estimateMotion(fields, sep = 15, tol = 2.5) {
+export function estimateMotion(fields, sep = 15) {
   if (!fields.length) return null;
   const { w, h, dx } = fields[0];
   let vecs = [];
   for (let i = 0; i < fields.length; i++) {
     for (let j = i + 1; j < fields.length; j++) {
       const dt = (fields[j].time - fields[i].time) / 60000;
-      if (Math.abs(dt - sep) <= tol) vecs = vecs.concat(trackPair(fields[i], fields[j], dt));
+      if (Math.abs(dt - sep) <= 1) vecs = vecs.concat(trackPair(fields[i], fields[j], dt));
     }
   }
   return buildMotionField(filterVectors(vecs, dx), w, h, dx);
@@ -240,12 +235,12 @@ export function estimateMotion(fields, sep = 15, tol = 2.5) {
 
 // Positions at each minute 0..minutes of the parcel that arrives at (x, y), traced
 // backwards through the motion field (midpoint steps).
-export function backTrajectory(mf, x, y, minutes, speed = 1) {
+export function backTrajectory(mf, x, y, minutes) {
   const xs = [x], ys = [y];
   for (let t = 1; t <= minutes; t++) {
     const a = velocity(mf, x, y);
-    const b = velocity(mf, x - a.u * speed / 2, y - a.v * speed / 2);
-    x -= b.u * speed; y -= b.v * speed;
+    const b = velocity(mf, x - a.u / 2, y - a.v / 2);
+    x -= b.u; y -= b.v;
     xs.push(x); ys.push(y);
   }
   return { xs, ys };
@@ -253,16 +248,14 @@ export function backTrajectory(mf, x, y, minutes, speed = 1) {
 
 // Minute-by-minute probability and intensity at grid point (x, y), for leads
 // 0..maxLead minutes after the field's time. `coverage` is the share of the
-// neighbourhood that lay inside the radar grid (1 = fully known). opts: r0 / grow (neighbourhood
-// radius in km and its growth per minute) and speed (motion scale), for tuning and tests.
-export function pointForecast(field, mf, x, y, maxLead, opts = {}) {
+// neighbourhood that lay inside the radar grid (1 = fully known).
+export function pointForecast(field, mf, x, y, maxLead) {
   const { w, h, dx, rate } = field;
-  const r0 = opts.r0 ?? R0_KM, grow = opts.grow ?? RGROW_KM;
-  const traj = backTrajectory(mf, x, y, maxLead, opts.speed ?? 1);
+  const traj = backTrajectory(mf, x, y, maxLead);
   const prob = [], intensity = [], coverage = [];
   for (let t = 0; t <= maxLead; t++) {
     const px = traj.xs[t], py = traj.ys[t];
-    const rkm = r0 + grow * t, rpx = rkm / dx, sig = rpx / 2;
+    const rkm = R0_KM + RGROW_KM * t, rpx = rkm / dx, sig = rpx / 2;
     const k = 1 / (2 * sig * sig);
     let wIn = 0, wOut = 0, wRain = 0, sR = 0;
     const x0 = Math.floor(px - rpx), x1 = Math.ceil(px + rpx);
@@ -341,7 +334,7 @@ export function csi(fc, obs, w, h, cx, cy, radius) {
 export function hindcast(fields, lead, cx, cy, radius) {
   const target = fields[fields.length - 1];
   const startTime = target.time - lead * 60000;
-  const si = fields.findIndex((f) => Math.abs(f.time - startTime) < 150000);
+  const si = fields.findIndex((f) => Math.abs(f.time - startTime) < 90000);
   if (si < 0) return null;
   const history = fields.slice(0, si + 1);
   const mf = estimateMotion(history);
