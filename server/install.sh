@@ -47,7 +47,8 @@ User=wxnow
 WorkingDirectory=$APP/server
 Environment=DATA_DIR=$DATA
 Environment=PORT=8787
-ExecStart=/usr/bin/node server.js
+ExecStart=/usr/bin/node --max-old-space-size=320 server.js
+MemoryMax=600M
 Restart=always
 RestartSec=10
 
