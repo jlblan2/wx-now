@@ -31,7 +31,6 @@ chance of precipitation, wind and gusts).
 |---|---|
 | `nowcast.js` | Tracking and extrapolation engine (no browser APIs) |
 | `radar.js` | Fetches and decodes radar frames, radar-site distance |
-| `level3.js`, `bzip2.js` | The most local radar: each NEXRAD's own N0B scans and airport TDWR TZ0 scans (every minute) from NOAA's Level III feed on AWS, bzip2-decoded in the browser and put onto the forecast grid; the national mosaic fills in beyond their range |
 | `doppler.js` | Doppler wind arrows: each radar's VAD Wind Profile (Level III NVW) from NOAA's AWS archive |
 | `storms.js` | NHC Atlantic tropical storms (cone, track, wind field, watches/warnings) and per-place threat checks |
 | `surge.js` | NHC storm surge: planning maps by category, live surge forecast, risk at a point |
@@ -98,10 +97,7 @@ VTEC event number so follow-up statements don't repeat; Tornado Watches at the p
 Day 1 tornado outlook (`POST /api/tornado`, mode 2 all / 1 warnings / 0 off). Every 3 minutes `server/flood.js` checks NWS
 Flash Flood Warnings (covering or within 5 miles, VTEC-tracked), Flash Flood Watches, MRMS
 `FLASH_QPE_FFGMAX` (rain as % of flash flood guidance, >= 100% within 5 miles) and the WPC Day 1
-Excessive Rainfall Outlook (`POST /api/flood`). `server/mrms/mrms.py` decodes any MRMS product a PNG Nightly (after 07:30 UTC) `server/verify.js` replays the rain nowcast 15 minutes before
-each rain begin/end logged in METAR remarks (RAB/RAE) at 30 Southeast airports the day before
-(IEM ASOS archive + archived Level III scans), keeps 60 days in `verification.json`, and serves the
-30-day score and per-chance calibration at `/api/verification`; the app adjusts its "% on time" with it.
+Excessive Rainfall Outlook (`POST /api/flood`). `server/mrms/mrms.py` decodes any MRMS product a PNG
 row at a time (~50 MB) for both the hail and flash flood grids. Status: `https://<server>/api/status`.
 Tests: `node server/test.js`.
 

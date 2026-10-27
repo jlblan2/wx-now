@@ -10,7 +10,7 @@ import webpush from 'web-push';
 import { decodePng } from './png.js';
 import { setPngDecoder } from '../radar.js';
 import { fetchModel } from '../model.js';
-import { radarCoverage, runRadar, blend, summarize, precipNoun, cap, fallDelay } from '../forecast.js';
+import { radarCoverage, runRadar, blend, summarize, precipNoun, cap } from '../forecast.js';
 import { decide, newState } from './decide.js';
 import { activeStorms } from '../storms.js';
 import { stormAlerts } from './stormalerts.js';
@@ -33,7 +33,6 @@ import { FOG_EVENTS, visibilityForecast, fogEvent, decideFog, fogMessage, pointA
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts, what, localTime } from './marinealerts.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
-import { initVerify, verifyDays, verifySnapshot } from './verify.js';
 import { passageMeta, passageStep } from './passage.js';
 
 const PORT = +(process.env.PORT || 8787);
@@ -131,8 +130,7 @@ async function forecastAt(loc) {
   }
   const model = await modelP;
   if (!radar && !model) return null;
-  const rs = radar && radar.source;
-  const series = blend(radar, model, radar ? quality : 0, rs ? fallDelay(rs.km, model ? model.tempC : null, rs.elevDeg) : null);
+  const series = blend(radar, model, radar ? quality : 0);
   const noun = precipNoun(model ? model.tempC : null);
   return { summary: summarize(series, noun, radar && radar.echo === 0), series, noun };
 }
@@ -727,29 +725,6 @@ async function waterTempAlerts(stations) {
 }
 
 // NDBC buoys: one file with every station's latest report, every 30 minutes.
-// Nightly forecast check against airport rain begin/end times (verify.js): after 07:30 UTC
-// (3:30 AM Eastern) yesterday is checked; days already done are skipped, and the first run
-// backfills the last two weeks. Checked every 30 minutes.
-let verifying = false;
-async function verifyLoop() {
-  if (!verifying) {
-    verifying = true;
-    try {
-      const now = Date.now(), today = Math.floor(now / 86400000) * 86400000;
-      const last = now - today >= 7.5 * 3600000 ? today - 86400000 : today - 2 * 86400000;
-      const n = await verifyDays(today - 14 * 86400000, last, (m) => console.error(m));
-      if (n) console.log(`Forecast check: ${n} airport rain starts/stops replayed`);
-      const v = verifySnapshot();
-      status.verifyStarts = v.starts; status.verifyStops = v.stops;
-      status.lastVerifyError = null;
-    } catch (e) {
-      status.lastVerifyError = e.message;
-      console.error('Forecast check failed:', e.message);
-    } finally { verifying = false; }
-  }
-  setTimeout(verifyLoop, 30 * 60000);
-}
-
 async function buoyLoop() {
   try {
     const s = await refreshBuoys();
@@ -824,10 +799,6 @@ const routes = {
   'GET /api/navy/meta': async () => navyMeta(NAVY_DIR),
   // Latest NDBC buoy / coastal station reports (water temperature, waves, wind).
   'GET /api/buoys': async () => buoySnapshot(),
-
-  // Rolling 30-day check of rain start/stop forecasts against airport reports, with the
-  // calibration of the app's "% on time".
-  'GET /api/verification': async () => verifySnapshot(),
 
   // Latest measured water level at every Atlantic-side gauge.
   'GET /api/waterlevels': async () => waterLevelSnapshot(),
@@ -1070,8 +1041,6 @@ server.listen(PORT, '127.0.0.1', () => {
   marineLoop();
   highWaterLoop();
   buoyLoop();
-  initVerify(DATA_DIR);
-  setTimeout(verifyLoop, 10 * 60000);   // after the start-up rush
   windLoop();
   fogLoop();
   thunderLoop();
