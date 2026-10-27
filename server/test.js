@@ -474,3 +474,38 @@ run('flash floods: warning details, nearby/covering, radar vs guidance, rainfall
 });
 
 console.log('All flash flood tests passed');
+
+// ---------- radar clutter ----------
+import { makeField, estimateMotion, removeClutter, RAIN_DBZ } from '../nowcast.js';
+run('clutter: still echo that lasts the hour is removed, moving rain is kept', () => {
+  const W = 120, H = 120, DX = 1.1, MIN = 60000;
+  const frames = [];
+  for (let k = 0; k <= 12; k++) {
+    const dbz = new Float32Array(W * H).fill(NaN);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        // still clutter patch in the north-west corner: grainy, flickering a little, always there
+        if (x >= 10 && x < 40 && y >= 10 && y < 40) dbz[y * W + x] = 25 + ((x * 7 + y * 13) % 11) + (k % 2);
+        // a rain band 20 px wide moving east 2 px per 5 min (about 26 km/h)
+        const bx = 30 + 2 * k;
+        if (y >= 60 && y < 100 && x >= bx && x < bx + 20) dbz[y * W + x] = 30 + 10 * Math.sin((x - bx) / 6) * Math.cos(y / 5);
+      }
+    }
+    frames.push(makeField(dbz, W, H, DX, k * 5 * MIN));
+  }
+  const recent = frames.filter((f) => f.time >= frames[12].time - 30 * MIN);
+  const res = removeClutter(frames, estimateMotion(recent));
+  assert.ok(res, 'clutter found');
+  const now = res.fields[12], at = (x, y) => now.rate[y * W + x];
+  assert.equal(at(25, 25), 0, 'still patch removed');
+  assert.ok(at(30 + 24 + 10, 80) > 0, 'moving rain kept');
+  let before = 0, after = 0;
+  for (let y = 50; y < H; y++) for (let x = 0; x < W; x++) { before += frames[12].rate[y * W + x] > 0; after += now.rate[y * W + x] > 0; }
+  assert.equal(after, before, 'none of the moving band removed');
+  assert.ok(res.removed > 450 && res.removed <= 900, `removed most of the patch only (${res.removed})`);
+  // with too little history nothing is judged
+  assert.equal(removeClutter(frames.slice(0, 6), estimateMotion(recent)), null);
+  assert.ok(RAIN_DBZ < 25);
+});
+
+console.log('All clutter tests passed');
