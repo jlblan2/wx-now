@@ -39,6 +39,7 @@ chance of precipitation, wind and gusts).
 | `passage.js` | Sailing weather charts (wind barbs, waves, isobars + rain, visibility) for the East Coast, Gulf, Bahamas, Caribbean and Bermuda |
 | `outlook.js` | NHC Atlantic Tropical Weather Outlook: text (TWO AT) and areas to watch with 2/7-day chances |
 | `seatemp.js` | Water temperature card: Open-Meteo marine sea surface temperature at the spot and the nearest NDBC buoys (via `/api/buoys`) |
+| `clarity.js` | Water clarity card (testing): NOAA VIIRS 750 m Kd490 (via `/api/clarity`, `server/clarity.js`), Copernicus Marine 4 km gap-free Secchi depth (public WMTS GetFeatureInfo, no account), and Sentinel-2 Kd490 from the user's own Copernicus Data Space OAuth client (Sentinel Hub Statistical API, called from the phone). Visibility = 0.534 × Kd490^-1.171, fitted to Copernicus' own ZSD/KD490 |
 | `tides.js`, `tidestations.js` | NOAA CO-OPS tide predictions (2,301 Atlantic-side stations) and measured water levels from the nearest of 220 gauges, loaded only in Seas & swell |
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |

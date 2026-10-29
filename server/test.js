@@ -509,3 +509,21 @@ run('clutter: still echo that lasts the hour is removed, moving rain is kept', (
 });
 
 console.log('All clutter tests passed');
+
+import { pickDay } from './clarity.js';
+{
+  const loc = { lat: 30.29, lon: -81.39 };
+  const rows = [
+    ['2026-10-21T19:00:00Z', 0, 30.29, -81.38, 1.4],
+    ['2026-10-21T19:00:00Z', 0, 30.30, -81.38, 1.6],
+    ['2026-10-24T19:00:00Z', 0, 30.29, -81.37, null],     // cloud
+    ['2026-10-24T19:00:00Z', 0, 30.29, -81.30, 0.3],      // 9 km away: too far
+    ['2026-10-16T19:00:00Z', 0, 30.29, -81.39, 0.25],
+  ];
+  const d = pickDay(rows, loc);
+  assert.equal(d.t, '2026-10-21T19:00:00Z', 'newest day with a clear pixel nearby');
+  assert.equal(d.n, 2);
+  assert.ok(Math.abs(d.kd - 1.5) < 1e-9, 'median of the nearest pixels');
+  assert.equal(pickDay([['2026-10-24T19:00:00Z', 0, 30.29, -81.39, null]], loc), null, 'all cloud');
+  console.log('All clarity tests passed');
+}

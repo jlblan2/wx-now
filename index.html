@@ -141,6 +141,12 @@
     <h3>While the app is open</h3>
     <label class="check"><input type="checkbox" id="alerts"> Alert me when rain is within 15 minutes</label>
 
+    <h3>Water clarity: Sentinel-2 (testing)</h3>
+    <p class="note">Optional. From your free Copernicus Data Space account: Sentinel Hub dashboard, User settings,
+      OAuth clients. Kept on this phone and sent only to Copernicus.</p>
+    <label>Client ID <input id="s2Id" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+    <label>Client secret <input id="s2Secret" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+
     <details class="advanced">
       <summary>Advanced</summary>
       <label>Alert server address <input id="alertServer" type="url" inputmode="url" autocomplete="off"></label>
@@ -231,6 +237,15 @@
     <p id="wtNow" class="wt-now">Loading…</p>
     <div id="wtTable" class="tide-table"></div>
     <p id="wtMeta" class="note"></p>
+  </section>
+
+  <section data-tab="seas" id="clarityCard" class="card clarity">
+    <h2>Water clarity <span class="pill">Testing</span></h2>
+    <p class="wt-now">How far down you can see, from three satellite sources. Readings are from the last clear pass, not live.</p>
+    <div id="clarityTable" class="tide-table"></div>
+    <p class="note">Visibility is the Secchi depth, worked out from Kd490 (how fast light fades in the water;
+      lower is clearer). Satellites see the water a little offshore: the surf line, the bottom in shallow water and
+      nearby land can throw readings off. Clarity is not water quality; check beach advisories for bacteria and red tide.</p>
   </section>
 
   <section data-tab="seas" id="passageCard" class="card passage">

@@ -31,6 +31,7 @@ import { SURF_EVENTS, beachZoneOf, surfForecast, zoneRisk, decideRip, ripMessage
 import { THUNDER_EVENTS, refreshLightning, lightningNear, decideLightning, lightningMessage } from './thunder.js';
 import { FOG_EVENTS, visibilityForecast, fogEvent, decideFog, fogMessage, pointAlerts } from './fogalerts.js';
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts, what, localTime } from './marinealerts.js';
+import { viirsClarity } from './clarity.js';
 import { MARINE_ZONES } from '../data.js';
 import { navyMeta, navyPoint, navyFile } from './navy.js';
 import { passageMeta, passageStep } from './passage.js';
@@ -799,6 +800,8 @@ const routes = {
   'GET /api/navy/meta': async () => navyMeta(NAVY_DIR),
   // Latest NDBC buoy / coastal station reports (water temperature, waves, wind).
   'GET /api/buoys': async () => buoySnapshot(),
+  // Water clarity (Kd490) near a spot from NOAA VIIRS; ERDDAP has no CORS, so it goes through here.
+  'GET /api/clarity': async (_, q) => viirsClarity(+q.get('lat'), +q.get('lon')),
 
   // Latest measured water level at every Atlantic-side gauge.
   'GET /api/waterlevels': async () => waterLevelSnapshot(),

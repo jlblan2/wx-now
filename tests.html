@@ -16,6 +16,7 @@
 import {
   makeField, estimateMotion, pointForecast, hindcast, dbzToRate, RAIN_RATE, velocity,
 } from './nowcast.js';
+import { visibilityM, describe, pickS2 } from './clarity.js';
 
 const out = document.getElementById('out');
 const results = [];
@@ -121,6 +122,16 @@ const mfStill = estimateMotion(still);
 const vs = velocity(mfStill, 150, 150);
 check('Stationary storm reads as stationary', Math.hypot(vs.u, vs.v) * DX * 60 < 3,
   `${(Math.hypot(vs.u, vs.v) * DX * 60).toFixed(2)} km/h`);
+
+// 7. Water clarity: Kd490 to visibility, matching Copernicus Marine's own Secchi depths
+check('Kd 0.217 sees about 3.2 m (Copernicus 3.20)', Math.abs(visibilityM(0.217) - 3.2) < 0.3, visibilityM(0.217).toFixed(2));
+check('Kd 0.046 sees about 19.8 m (Copernicus 19.80)', Math.abs(visibilityM(0.046) - 19.8) < 3, visibilityM(0.046).toFixed(1));
+check('Visibility stays within 0.1-40 m', visibilityM(50) === 0.1 && visibilityM(0.001) === 40);
+check('Clarity words', describe(12) === 'very clear' && describe(3) === 'fair' && describe(0.5) === 'very murky');
+const s2day = (from, n, kd) => ({ interval: { from }, outputs: { kd: { bands: { B0: { stats: { sampleCount: 1000, noDataCount: 1000 - n, mean: kd, percentiles: { '50.0': kd } } } } } } });
+const s2 = pickS2([s2day('2026-10-20T00:00:00Z', 500, 0.3), s2day('2026-10-25T00:00:00Z', 5, 0.9), s2day('2026-10-22T00:00:00Z', 300, 0.2)]);
+check('Sentinel-2 takes the newest day with enough clear water', s2.kd === 0.2 && s2.t.startsWith('2026-10-22'), JSON.stringify(s2));
+check('Sentinel-2 with no clear water says so', !!pickS2([s2day('2026-10-25T00:00:00Z', 0, 0)]).none);
 
 const passed = results.filter(Boolean).length;
 document.title = `${passed}/${results.length} passed`;
