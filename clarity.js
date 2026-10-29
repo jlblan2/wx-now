@@ -100,6 +100,7 @@ function dist(a, b) {
 const S2_TOKEN = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
 const S2_STATS = 'https://sh.dataspace.copernicus.eu/api/v1/statistics';
 const S2_BOX = 0.006;   // degrees each side (about 650 m)
+const S2_DAYS = 20;
 let s2Token = null;
 
 const get = (k) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
@@ -139,8 +140,8 @@ function evaluatePixel(s) {
 async function sentinel2(loc) {
   const { id, secret } = s2Creds();
   if (!id || !secret) return { none: 'add your Copernicus Data Space OAuth client in Settings to try it' };
-  const access = await s2AccessToken();
-  const to = new Date(), from = new Date(Date.now() - 30 * 86400000);
+  const access = await s2Step('sign-in', s2AccessToken);
+  const to = new Date(), from = new Date(Date.now() - S2_DAYS * 86400000);
   const body = {
     input: {
       bounds: {
@@ -153,18 +154,34 @@ async function sentinel2(loc) {
       timeRange: { from: from.toISOString(), to: to.toISOString() },
       aggregationInterval: { of: 'P1D' },
       evalscript: S2_EVALSCRIPT,
-      resx: 0.0001, resy: 0.0001,
+      resx: 0.0002, resy: 0.0002,   // about 20 m, the resolution of the scene classification
     },
     calculations: { default: { statistics: { default: { percentiles: { k: [50] } } } } },
   };
-  const r = await fetch(S2_STATS, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+  return s2Step('data request', async () => {
+    const r = await fetch(S2_STATS, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error?.message || j.message || `HTTP ${r.status}`);
+    return pickS2(j.data || []);
   });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error?.message || j.message || `HTTP ${r.status}`);
-  return pickS2(j.data || []);
+}
+
+// Safari reports any blocked or dropped request only as "Load failed", so say which step it
+// was and how long it ran (a gateway timeout comes back without CORS headers).
+async function s2Step(name, fn) {
+  const t0 = Date.now();
+  try {
+    return await fn();
+  } catch (e) {
+    const s = Math.round((Date.now() - t0) / 1000);
+    const dropped = e instanceof TypeError;
+    throw new Error(`${name} ${dropped ? 'got no answer' : 'failed'} after ${s} s` +
+      `${dropped ? ' (blocked or timed out)' : ''}: ${e.message}`);
+  }
 }
 
 // Newest day with at least 20 clear water pixels.
@@ -177,7 +194,7 @@ export function pickS2(data) {
     })
     .filter((d) => d.n >= 20 && d.kd > 0)
     .sort((a, b) => (a.t < b.t ? 1 : -1));
-  if (!days.length) return { none: 'no cloud-free pass over water near here in the last 30 days' };
+  if (!days.length) return { none: `no cloud-free pass over water near here in the last ${S2_DAYS} days` };
   const x = days[0];
   return { kd: x.kd, t: x.t, km: 0, note: `median of ${x.n} water pixels within about 650 m` };
 }
