@@ -140,6 +140,8 @@ function evaluatePixel(s) {
 async function sentinel2(loc) {
   const { id, secret } = s2Creds();
   if (!id || !secret) return { none: 'add your Copernicus Data Space OAuth client in Settings to try it' };
+  // A successful sign-in carries CORS headers only for origins listed on the OAuth client, so a
+  // client made without "single-page application" + https://jlblan2.github.io fails as "Load failed".
   const access = await s2Step('sign-in', s2AccessToken);
   const to = new Date(), from = new Date(Date.now() - S2_DAYS * 86400000);
   const body = {
