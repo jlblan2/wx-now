@@ -11,6 +11,7 @@ import { useZoneFor, confirmZone, timeOf, hourOf, dayOf, dayHourOf, whenOf, zone
 import {
   P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize, headline } from './forecast.js';
 import { initPush, reportLocation, pushEnabled, syncMarine, syncWaterTemp, alertServerUrl } from './push.js';
+import { s2Creds, setS2Creds } from './clarity.js';
 import { secondOpinion } from './compare.js';
 import { initPassage, passageUnitsChanged, passageShown } from './passage.js';
 
@@ -103,7 +104,7 @@ async function refresh() {
     loadStorms();
     loadOutlook();
     loadMarine(loc);
-    if (state.tab === 'seas') { loadTides(loc); loadWaterTemp(loc); }
+    if (state.tab === 'seas') { loadTides(loc); loadWaterTemp(loc); loadClarity(loc); }
     const { site, quality } = radarCoverage(loc);
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
     let radar = null, radarErr = null;
@@ -1132,6 +1133,21 @@ async function loadWaterTemp(at) {
   }
 }
 
+let clarityMod = null;
+async function loadClarity(at) {
+  const loc = at || state.picked || state.gps;
+  if (!loc) return;
+  try {
+    if (!clarityMod) {
+      clarityMod = await import('./clarity.js');
+      clarityMod.initClarity({ metric, esc, server: alertServerUrl });
+    }
+    clarityMod.showClarity(loc);
+  } catch (e) {
+    $('clarityTable').textContent = `Water clarity unavailable: ${e.message}`;
+  }
+}
+
 // ---------- tabs ----------
 
 const TAB_PANES = { local: ['tabLocal'], storms: ['tabStorms', 'surge'], seas: ['tabSeas'] };
@@ -1179,7 +1195,7 @@ function setTab(tab, { remember = true } = {}) {
     $('wavesSel').value = 'on';
     setWaves(true);
   }
-  if (tab === 'seas') { passageShown(); loadTides(); loadWaterTemp(); }
+  if (tab === 'seas') { passageShown(); loadTides(); loadWaterTemp(); loadClarity(); }
   window.scrollTo({ top: 0 });
 }
 
@@ -1289,7 +1305,16 @@ function bindUi() {
   });
   $('settingsBtn').addEventListener('click', () => showSettings($('settings').hidden));
   $('units').value = state.units;
-  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); syncWaterTemp(); if (state.tab === 'seas') { loadTides(); loadWaterTemp(); } });
+  const creds = s2Creds();
+  $('s2Id').value = creds.id;
+  $('s2Secret').value = creds.secret;
+  const saveCreds = () => {
+    setS2Creds($('s2Id').value, $('s2Secret').value);
+    if (state.tab === 'seas') loadClarity();
+  };
+  $('s2Id').addEventListener('change', saveCreds);
+  $('s2Secret').addEventListener('change', saveCreds);
+  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); syncWaterTemp(); if (state.tab === 'seas') { loadTides(); loadWaterTemp(); loadClarity(); } });
   $('alerts').checked = state.alerts;
   $('alerts').addEventListener('change', (e) => setAlerts(e.target.checked));
   window.addEventListener('resize', () => state.result && drawChart(state.result.series));

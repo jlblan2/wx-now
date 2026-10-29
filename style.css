@@ -254,6 +254,7 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 
 /* water temperature */
 .wt-now { margin: 4px 0 6px; font-size: 14px; }
+.cl-none { color: var(--muted); }
 .wt-id, .wt-where { color: var(--muted); font-weight: 400; font-size: 12px; }
 
 /* tides */
