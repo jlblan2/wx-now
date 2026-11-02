@@ -222,6 +222,10 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .second td small { display: block; color: var(--muted); font-size: 11px; }
 .second td.flag { color: #ffb74d; font-weight: 600; }
 .second .summary { margin: 0 0 8px; font-size: 14px; }
+.second .history-head { font-size: 15px; margin: 18px 0 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.second td b { display: block; font-weight: 600; }
+.second td small.win { color: #81c784; font-weight: 600; }
+.second tfoot td { border-top: 2px solid var(--border); }
 .second .key { color: var(--muted); font-size: 11px; margin: 6px 0 0; }
 
 /* sailing weather */

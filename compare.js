@@ -4,7 +4,7 @@
 
 const DAYS = 5;
 
-async function getJson(url, ms = 20000) {
+export async function getJson(url, ms = 20000) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), ms);
   try {

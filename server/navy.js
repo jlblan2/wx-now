@@ -64,6 +64,36 @@ export function navyPoint(root, lat, lon) {
   return { cycle: m.cycle, base: m.base, steps: m.steps, units: m.units, series };
 }
 
+// Past day-ahead forecasts at the grid point nearest (lat, lon): one entry per saved run,
+// oldest first, for the History part of the card. Reads only the values it needs.
+export function navyHistory(root, lat, lon) {
+  const dir = path.join(root, 'hist');
+  let m;
+  try { m = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')); } catch { throw new Error('Navy history not collected yet'); }
+  const i = Math.round((lat - m.lat0) / m.res), j = Math.round((lon - m.lon0) / m.res);
+  if (i < 0 || j < 0 || i >= m.nlat || j >= m.nlon) throw new Error('Outside the Navy forecast area');
+  const ns = m.steps.length, plane = m.nlat * m.nlon;
+  const cell = Buffer.alloc(2);
+  const runs = fs.readdirSync(dir).filter((f) => /^\d{10}\.bin$/.test(f)).sort().map((f) => {
+    const fd = fs.openSync(path.join(dir, f), 'r');
+    try {
+      const series = {};
+      m.vars.forEach((v, vi) => {
+        series[v.name] = m.steps.map((_, si) => {
+          fs.readSync(fd, cell, 0, 2, ((vi * ns + si) * plane + i * m.nlon + j) * 2);
+          const raw = cell.readInt16LE(0);
+          return raw === m.missing ? null : Math.round(raw * v.scale * 100) / 100;
+        });
+      });
+      const c = f.slice(0, 10);
+      return { base: `${c.slice(0, 4)}-${c.slice(4, 6)}-${c.slice(6, 8)}T${c.slice(8)}:00:00Z`, series };
+    } finally {
+      fs.closeSync(fd);
+    }
+  });
+  return { steps: m.steps, units: m.units, runs };
+}
+
 // Map files: waves_NNN.png and arrows_NNN.json of the current or previous cycle.
 export function navyFile(root, cycle, name) {
   if (!/^\d{10}$/.test(cycle) || !/^(waves_\d{3}\.png|arrows_\d{3}\.json)$/.test(name)) return null;

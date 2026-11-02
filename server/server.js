@@ -33,7 +33,7 @@ import { FOG_EVENTS, visibilityForecast, fogEvent, decideFog, fogMessage, pointA
 import { marineZones, marineAlertSends, fetchMarineAlerts, fetchOffshoreAlerts, what, localTime } from './marinealerts.js';
 import { viirsClarity } from './clarity.js';
 import { MARINE_ZONES } from '../data.js';
-import { navyMeta, navyPoint, navyFile } from './navy.js';
+import { navyMeta, navyPoint, navyFile, navyHistory } from './navy.js';
 import { passageMeta, passageStep } from './passage.js';
 
 const PORT = +(process.env.PORT || 8787);
@@ -809,6 +809,8 @@ const routes = {
   // Sailing weather maps: which NOAA and Navy runs are available.
   'GET /api/passage/meta': async () => passageMeta(PASSAGE_DIR, NAVY_DIR),
   'GET /api/navy/point': async (_, q) => navyPoint(NAVY_DIR, +q.get('lat'), +q.get('lon')),
+  // Day-ahead Navy forecasts of the past 10 days, for checking them against what happened.
+  'GET /api/navy/history': async (_, q) => navyHistory(NAVY_DIR, +q.get('lat'), +q.get('lon')),
 
   // { subscription, places, last: {lat, lon} } — creates or replaces a subscriber.
   'POST /api/subscribe': async (b) => {
