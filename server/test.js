@@ -527,3 +527,30 @@ import { pickDay } from './clarity.js';
   assert.equal(pickDay([['2026-10-24T19:00:00Z', 0, 30.29, -81.39, null]], loc), null, 'all cloud');
   console.log('All clarity tests passed');
 }
+
+import { navyHistory } from './navy.js';
+{
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'navyhist-'));
+  const dir = path.join(root, 'hist');
+  fs.mkdirSync(dir);
+  const m = { steps: [18, 21, 24], lat0: 0, lon0: -130, res: 0.5, nlat: 121, nlon: 161, missing: -32768,
+    vars: [{ name: 't2m', scale: 0.1 }, { name: 'u10', scale: 0.1 }, { name: 'v10', scale: 0.1 }, { name: 'apcp', scale: 0.1 }] };
+  fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(m));
+  const plane = m.nlat * m.nlon;
+  const data = new Int16Array(4 * 3 * plane).fill(m.missing);
+  const i = Math.round((30.3 - 0) / 0.5), j = Math.round((-81.6 + 130) / 0.5);
+  [2950, 2960, 2970].forEach((v, si) => { data[(0 * 3 + si) * plane + i * m.nlon + j] = v; });
+  data[(3 * 3 + 2) * plane + i * m.nlon + j] = 25;
+  fs.writeFileSync(path.join(dir, '2026110106.bin'), Buffer.from(data.buffer));
+  fs.writeFileSync(path.join(dir, '2026110100.bin'), Buffer.from(new Int16Array(4 * 3 * plane).fill(m.missing).buffer));
+  const h = navyHistory(root, 30.3, -81.6);
+  assert.deepEqual(h.runs.map((r) => r.base), ['2026-11-01T00:00:00Z', '2026-11-01T06:00:00Z'], 'oldest run first');
+  assert.deepEqual(h.runs[1].series.t2m, [295, 296, 297]);
+  assert.deepEqual(h.runs[1].series.apcp, [null, null, 2.5]);
+  assert.equal(h.runs[0].series.t2m[0], null);
+  assert.throws(() => navyHistory(root, 70, -81), /Outside/);
+  assert.throws(() => navyHistory(path.join(root, 'none'), 30, -81), /not collected/);
+  fs.rmSync(root, { recursive: true });
+  console.log('All Navy history tests passed');
+}

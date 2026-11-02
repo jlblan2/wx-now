@@ -17,6 +17,7 @@ import {
   makeField, estimateMotion, pointForecast, hindcast, dbzToRate, RAIN_RATE, velocity,
 } from './nowcast.js';
 import { visibilityM, describe, pickS2 } from './clarity.js';
+import { pastDays, observedDaily, noaaDaily, navyHistDaily, scores } from './history.js';
 
 const out = document.getElementById('out');
 const results = [];
@@ -132,6 +133,34 @@ const s2day = (from, n, kd) => ({ interval: { from }, outputs: { kd: { bands: { 
 const s2 = pickS2([s2day('2026-10-20T00:00:00Z', 500, 0.3), s2day('2026-10-25T00:00:00Z', 5, 0.9), s2day('2026-10-22T00:00:00Z', 300, 0.2)]);
 check('Sentinel-2 takes the newest day with enough clear water', s2.kd === 0.2 && s2.t.startsWith('2026-10-22'), JSON.stringify(s2));
 check('Sentinel-2 with no clear water says so', !!pickS2([s2day('2026-10-25T00:00:00Z', 0, 0)]).none);
+
+// 8. Forecast history: last 7 days, measured vs NOAA and Navy day-ahead forecasts
+{
+  const now = Date.UTC(2026, 10, 2, 3, 30);   // Nov 1, 22:30 in New York (the night DST ended)
+  const d = pastDays(now, 'America/New_York');
+  check('History covers the 7 days before today', d.length === 7 && d[0] === '2026-10-25' && d[6] === '2026-10-31', d.join(' '));
+  const lines = ['station,valid,tmpf,sknt,p01i'];
+  for (let hr = 0; hr < 24; hr++) lines.push(`JAX,2026-10-30 ${String(hr).padStart(2, '0')}:56,${hr === 15 ? 80.6 : hr === 6 ? 59 : 68},${hr === 14 ? 20 : 5},${hr === 10 ? 'T' : hr === 11 ? '0.50' : '0.00'}`);
+  lines.push('JAX,2026-10-31 00:56,M,M,M');
+  const o = observedDaily(lines.join('\n'));
+  const ob = o['2026-10-30'];
+  check('Station high, low, rain and wind for a day', Math.abs(ob.hi - 27) < 0.01 && Math.abs(ob.lo - 15) < 0.01 && Math.abs(ob.rain - 12.7) < 0.01 && Math.abs(ob.wind - 37.04) < 0.01, JSON.stringify(ob));
+  check('A day with too few reports is left out', !o['2026-10-31']);
+  const time = [], T = [], P = [], W = [];
+  for (let hr = 0; hr < 24; hr++) { time.push(`2026-10-30T${String(hr).padStart(2, '0')}:00`); T.push(20 + (hr === 15 ? 6 : 0)); P.push(hr === 9 ? 2.5 : 0); W.push(hr === 12 ? 30 : 10); }
+  const nd = noaaDaily({ time, temperature_2m_previous_day1: T, precipitation_previous_day1: P, wind_speed_10m_previous_day1: W })['2026-10-30'];
+  check('NOAA past forecast per day', nd.hi === 26 && nd.lo === 20 && nd.rain === 2.5 && nd.wind === 30, JSON.stringify(nd));
+  // Four runs a day, steps 18/21/24: every 3-hourly time on Oct 30 (UTC) covered.
+  const runs = [];
+  for (let k = 0; k < 8; k++) {
+    const base = new Date(Date.UTC(2026, 9, 29, 0) + k * 6 * 3600000).toISOString().replace('.000', '');
+    runs.push({ base, series: { t2m: [293.15 + k, 293.15 + k, 293.15 + k], u10: [3, 4, 5], v10: [4, 3, 0], apcp: [1, null, 2] } });
+  }
+  const nv = navyHistDaily({ steps: [18, 21, 24], runs }, 'UTC')['2026-10-30'];
+  check('Navy day-ahead forecast per day', nv && Math.abs(nv.lo - 21) < 1e-9 && Math.abs(nv.hi - 24) < 1e-9 && nv.rain === 8 && Math.abs(nv.wind - 18) < 1e-9, JSON.stringify(nv));
+  const sc = scores([{ obs: { hi: 25, lo: 15, rain: 0, wind: 20 }, noaa: { hi: 26, lo: 15, rain: 1, wind: 20 }, navy: { hi: 22, lo: 16, rain: 0, wind: null } }]);
+  check('Average miss per model', sc.noaa.hi.mae === 1 && sc.navy.hi.mae === 3 && sc.navy.rain.mae === 0 && sc.navy.wind === null);
+}
 
 const passed = results.filter(Boolean).length;
 document.title = `${passed}/${results.length} passed`;

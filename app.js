@@ -13,6 +13,7 @@ import {
 import { initPush, reportLocation, pushEnabled, syncMarine, syncWaterTemp, alertServerUrl } from './push.js';
 import { s2Creds, setS2Creds } from './clarity.js';
 import { secondOpinion } from './compare.js';
+import { forecastHistory, KEYS as HIST_KEYS } from './history.js';
 import { initPassage, passageUnitsChanged, passageShown } from './passage.js';
 
 const REFRESH_MS = 5 * 60000;
@@ -217,6 +218,7 @@ function render() {
   renderOutlook(r.model);
   loadSurgeRisk(r);
   if (r.second) renderSecondOpinion(r); else loadSecondOpinion(r);
+  if (r.history) renderHistory(r); else loadHistory(r);
   if (state.storms.length) renderStorms();
   renderMap(r);
 }
@@ -699,6 +701,83 @@ function renderSecondOpinion(r) {
       ${cell(row, 'hi', temp)}${cell(row, 'lo', temp)}${cell(row, 'rain', fmtRain)}${cell(row, 'wind', fmtWindN)}${s.coastal ? cell(row, 'wave', fmtWave) : ''}</tr>`).join('')}</tbody></table>
     <p class="key">Top: NOAA (GFS${s.coastal ? ', GFS-Wave' : ''}). Below: Navy (NAVGEM${s.coastal ? ', WAVEWATCH III' : ''}). Orange = the two disagree. Wind is the day's strongest sustained wind.</p>`;
   $('secondNote').textContent = `Navy run ${dayHourOf(s.navyRun)}. Navy highs and lows come from 3- to 6-hourly values, so they can run slightly milder than NOAA's.`;
+}
+
+// History: the last 7 days' day-ahead NOAA and Navy forecasts against what was measured.
+async function loadHistory(r) {
+  if (r.history !== undefined) return;
+  r.history = null;
+  $('historyBody').innerHTML = '<p class="note">Checking the last 7 days…</p>';
+  $('historyNote').textContent = '';
+  try {
+    r.history = await forecastHistory(alertServerUrl(), r.loc.lat, r.loc.lon);
+  } catch (e) {
+    r.history = { error: e.message };
+  }
+  if (state.result === r) renderHistory(r);
+}
+
+function renderHistory(r) {
+  const h = r.history;
+  if (!h) return;
+  const body = $('historyBody');
+  if (h.error || !h.station) {
+    body.innerHTML = `<p class="note">${esc(h.error || (h.errors.obs ? `No observations to check against: ${h.errors.obs}.` : 'No observations to check against.'))}</p>`;
+    $('historyNote').textContent = '';
+    return;
+  }
+  const temp = (v) => (v === null || v === undefined ? '—' : fmtT(v));
+  const fmt = { hi: temp, lo: temp, rain: fmtRain, wind: fmtWindN };
+  const dayName = (d) => `${new Date(`${d}T12:00:00Z`).toLocaleDateString([], { weekday: 'short', timeZone: 'UTC' })} ${+d.slice(5, 7)}/${+d.slice(8)}`;
+  // Each cell: what was measured, then each model, the closer one in green.
+  const cell = (row, k) => {
+    const o = row.obs?.[k], a = row.noaa?.[k], b = row.navy?.[k];
+    const ea = o != null && a != null ? Math.abs(a - o) : null, eb = o != null && b != null ? Math.abs(b - o) : null;
+    const win = (e, other) => (e !== null && other !== null && e < other ? ' class="win"' : '');
+    return `<td><b>${fmt[k](o)}</b><small${win(ea, eb)}>${fmt[k](a)}</small><small${win(eb, ea)}>${fmt[k](b)}</small></td>`;
+  };
+  // Average miss, converted to the display units (a temperature difference is 9/5 in °F).
+  const miss = {
+    hi: (e) => `${(metric() ? e : e * 9 / 5).toFixed(1)}°`, lo: (e) => `${(metric() ? e : e * 9 / 5).toFixed(1)}°`,
+    rain: (e) => (metric() ? e.toFixed(1) : (e / 25.4).toFixed(2)), wind: (e) => `${Math.round(metric() ? e : e * 0.621371)}`,
+  };
+  const sc = h.score;
+  const avg = (m, k) => {
+    const x = sc[m][k], y = sc[m === 'noaa' ? 'navy' : 'noaa'][k];
+    return `<small${x && y && x.mae < y.mae ? ' class="win"' : ''}>${x ? miss[k](x.mae) : '—'}</small>`;
+  };
+  const wins = { noaa: 0, navy: 0 };
+  for (const k of HIST_KEYS) {
+    const a = sc.noaa[k], b = sc.navy[k];
+    if (a && b && a.mae !== b.mae) wins[a.mae < b.mae ? 'noaa' : 'navy']++;
+  }
+  const names = { hi: 'highs', lo: 'lows', rain: 'rain', wind: 'wind' };
+  const better = (m) => HIST_KEYS.filter((k) => sc[m][k] && sc[m === 'noaa' ? 'navy' : 'noaa'][k] && sc[m][k].mae < sc[m === 'noaa' ? 'navy' : 'noaa'][k].mae).map((k) => names[k]);
+  const navyDays = h.rows.filter((x) => x.navy && x.obs).length, noaaDays = h.rows.filter((x) => x.noaa && x.obs).length;
+  let summary;
+  if (!navyDays && !noaaDays) summary = 'No past forecasts to compare yet.';
+  else if (!navyDays) {
+    const n = sc.noaa;
+    summary = `NOAA's day-ahead forecasts missed by ${[n.hi && `${miss.hi(n.hi.mae)} on highs`, n.lo && `${miss.lo(n.lo.mae)} on lows`, n.wind && `${miss.wind(n.wind.mae)} ${metric() ? 'km/h' : 'mph'} on wind`].filter(Boolean).join(', ')} on average. ` +
+      'Navy forecasts are saved from November 1, 2026, so the Navy fills in over the coming week.';
+  }
+  else if (!noaaDays) summary = "Only the Navy can be scored: NOAA's past forecasts are unavailable right now.";
+  else if (!wins.noaa && !wins.navy) summary = `Over ${Math.min(navyDays, noaaDays)} days NOAA and the Navy did about equally well here.`;
+  else {
+    const lead = wins.noaa >= wins.navy ? 'noaa' : 'navy', other = lead === 'noaa' ? 'navy' : 'noaa';
+    const label = { noaa: 'NOAA', navy: 'The Navy' };
+    summary = `${label[lead]} was closer on ${better(lead).join(', ')}` +
+      (better(other).length ? `; ${lead === 'noaa' ? 'the Navy' : 'NOAA'} on ${better(other).join(', ')}.` : '.') +
+      (navyDays < noaaDays ? ` (Navy scored on ${navyDays} day${navyDays === 1 ? '' : 's'} so far.)` : '');
+  }
+  const s = h.station;
+  body.innerHTML = `<p class="summary">${esc(summary)}</p>
+    <table><thead><tr><th>Day</th><th>High</th><th>Low</th><th>Rain ${metric() ? 'mm' : 'in'}</th><th>Wind ${metric() ? 'km/h' : 'mph'}</th></tr></thead>
+    <tbody>${h.rows.map((row) => `<tr><td>${dayName(row.date)}<small>NOAA</small><small>Navy</small></td>${HIST_KEYS.map((k) => cell(row, k)).join('')}</tr>`).join('')}</tbody>
+    <tfoot><tr><td>Avg miss<small>NOAA</small><small>Navy</small></td>${HIST_KEYS.map((k) => `<td>&nbsp;${avg('noaa', k)}${avg('navy', k)}</td>`).join('')}</tr></tfoot></table>
+    <p class="key">Bold: measured at ${esc(s.id)} ${esc(s.name)} (${metric() ? `${Math.round(s.km)} km` : `${Math.round(s.km * 0.621371)} mi`} away). Below it: what NOAA (GFS) and the Navy (NAVGEM) forecast about a day ahead. Green = closer to what happened. Wind is the day's strongest sustained wind.</p>`;
+  const gaps = [h.errors.noaa && `NOAA history unavailable: ${h.errors.noaa}`, h.errors.navy && `Navy history unavailable: ${h.errors.navy}`].filter(Boolean);
+  $('historyNote').textContent = [...gaps, 'Station readings are hourly, so highs, lows and winds can miss brief peaks. Navy values come from 3-hourly forecasts.'].join(' ');
 }
 
 // ---------- marine forecast (Gulf and Atlantic) ----------

@@ -10,6 +10,8 @@ cuts out the US region, and writes for the alert server:
   OUT/<cycle>/waves_<h>.png wave height in Web Mercator for the map
   OUT/<cycle>/arrows_<h>.json wave direction samples
   OUT/latest.json           which cycle is current
+  OUT/hist/<cycle>.bin      day-ahead (18-24 h) weather of every run, kept for HIST_DAYS,
+                            so the app can check past forecasts against what happened
 Runs from a timer; does nothing if the newest run is already processed.
 """
 import datetime as dt
@@ -37,6 +39,9 @@ STEPS = [int(x) for x in os.environ['NAVY_STEPS'].split(',')] if os.environ.get(
 LAT0, LAT1, LON0, LON1 = 0.0, 60.0, -130.0, -50.0   # region (0.5 degree grid)
 RES = 0.5
 KEEP_CYCLES = 2
+HIST_STEPS = [18, 21, 24]           # day-ahead forecast; with 4 runs a day every 3-hourly time is covered
+HIST_VARS = ['t2m', 'u10', 'v10', 'apcp']
+HIST_DAYS = 10
 
 # name: (source, match, scale) — values are stored as round(value / scale) in int16
 VARS = {
@@ -204,8 +209,65 @@ def arrows(swh, per, dirs, every=4):
     return out
 
 
+def archive_history():
+    """Save the day-ahead forecast of every NAVGEM run NOMADS still has (it keeps about 2 days)."""
+    hist = os.path.join(OUT, 'hist')
+    os.makedirs(hist, exist_ok=True)
+    rows, cols = region_index()
+    lats, lons = LAT0 + np.arange(len(rows)) * RES, LON0 + np.arange(len(cols)) * RES
+    pac = pacific_mask(lats, lons)
+    json.dump({'steps': HIST_STEPS, 'lat0': LAT0, 'lon0': LON0, 'res': RES, 'nlat': len(rows), 'nlon': len(cols),
+               'vars': [{'name': n, 'scale': VARS[n][2]} for n in HIST_VARS], 'missing': MISSING,
+               'units': {'t2m': 'K', 'u10': 'm/s', 'v10': 'm/s', 'apcp': 'mm per 6 h ending at step'}},
+              open(os.path.join(hist, 'meta.json'), 'w'))
+    now = dt.datetime.now(dt.timezone.utc)
+    work = tempfile.mkdtemp(prefix='navyhist-')
+    try:
+        for back in (1, 0):
+            day = (now - dt.timedelta(days=back)).strftime('%Y%m%d')
+            try:
+                files = listing(f'{NOMADS}/navgem.{day}/')
+            except Exception:  # noqa: BLE001 - day not posted
+                continue
+            for hh in ('00', '06', '12', '18'):
+                cycle = day + hh
+                dest = os.path.join(hist, cycle + '.bin')
+                if os.path.exists(dest) or f'navgem_{cycle}f{HIST_STEPS[-1]:03d}.grib2' not in files:
+                    continue
+                data = np.full((len(HIST_VARS), len(HIST_STEPS), len(rows), len(cols)), MISSING, np.int16)
+                for si, h in enumerate(HIST_STEPS):
+                    try:
+                        path = get(nav_url(cycle, h), os.path.join(work, 'navgem'))
+                    except Exception as e:  # noqa: BLE001
+                        log('hist skip', cycle, h, e)
+                        continue
+                    grids = extract(path, 'navgem', rows, cols)
+                    os.remove(path)
+                    for vi, name in enumerate(HIST_VARS):
+                        g = grids.get(name)
+                        if g is None:
+                            continue
+                        g[pac] = np.nan
+                        scaled = np.clip(np.round(g / VARS[name][2]), -32767, 32767)
+                        scaled[np.isnan(scaled)] = MISSING
+                        data[vi, si] = scaled.astype(np.int16)
+                data.tofile(dest + '.part')
+                os.replace(dest + '.part', dest)
+                log('hist saved', cycle)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    cutoff = (now - dt.timedelta(days=HIST_DAYS)).strftime('%Y%m%d%H')
+    for f in os.listdir(hist):
+        if re.fullmatch(r'\d{10}\.bin', f) and f[:10] < cutoff:
+            os.remove(os.path.join(hist, f))
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    try:
+        archive_history()
+    except Exception as e:  # noqa: BLE001 - history is extra; never stop the main run
+        log('history failed', e)
     cycle = latest_complete_cycle()
     if not cycle:
         log('no complete cycle found')

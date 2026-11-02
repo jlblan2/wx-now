@@ -36,6 +36,7 @@ chance of precipitation, wind and gusts).
 | `surge.js` | NHC storm surge: planning maps by category, live surge forecast, risk at a point |
 | `marine.js` | NWS Gulf and Atlantic marine zone forecasts and alerts (api.weather.gov); offshore zones read from the Offshore Waters Forecasts (OFF NT1-NT5) |
 | `compare.js` | Second opinion: NOAA GFS / GFS-Wave vs Navy NAVGEM / WAVEWATCH III, daily, with disagreements flagged |
+| `history.js` | Second opinion History: the last 7 days' day-ahead NOAA and Navy forecasts vs the nearest airport station (IEM ASOS archive), with each model's average miss |
 | `passage.js` | Sailing weather charts (wind barbs, waves, isobars + rain, visibility) for the East Coast, Gulf, Bahamas, Caribbean and Bermuda |
 | `outlook.js` | NHC Atlantic Tropical Weather Outlook: text (TWO AT) and areas to watch with 2/7-day chances |
 | `seatemp.js` | Water temperature card: Open-Meteo marine sea surface temperature at the spot and the nearest NDBC buoys (via `/api/buoys`) |
@@ -72,7 +73,8 @@ curl -fsSL https://raw.githubusercontent.com/jlblan2/wx-now/main/server/install.
 The VM pulls new commits from GitHub every 30 minutes. It also fetches each new U.S. Navy
 (FNMOC) run from NOAA NOMADS hourly (`server/navy/fetch_navy.py`): NAVGEM and the Navy
 WAVEWATCH III ensemble control member, 0-120 h, cut to 0-60N 130-50W, served to the app
-at `/api/navy/*` for the wave map and the second-opinion card. For the Sailing weather charts it
+at `/api/navy/*` for the wave map and the second-opinion card. It also saves the 18-24 h
+forecast of every NAVGEM run for 10 days (`navy/hist/`, `/api/navy/history`) for the card's History. For the Sailing weather charts it
 also fetches each GFS run (`server/passage/fetch_gfs.py`, NOMADS grib filter: 10 m wind, gusts,
 pressure, rain rate, visibility, sea surface temperature, GFS-Wave height/period/direction; 8-47N 100-58W, 0.25 deg,
 3-hourly to 168 h), served gzipped at `/api/passage/*` alongside the Navy run in the same layout. Measured water
