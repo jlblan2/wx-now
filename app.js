@@ -36,6 +36,8 @@ const state = {
   result: null,
   frameIdx: 0,
   playing: null,
+  // The radar loop plays by itself unless the user paused it (or prefers reduced motion).
+  autoplay: store.get('radarAutoplay', !matchMedia('(prefers-reduced-motion: reduce)').matches),
   arrows: store.get('arrows', true),
   velocity: false,
   stormMap: store.get('stormMap', true),
@@ -533,6 +535,7 @@ function renderMap(r) {
   state.frameIdx = nowIdx;
   showFrame(nowIdx);
   drawVelocity();
+  autoPlay();
 }
 
 // Doppler velocity mode: the nearest radar's red/green radial-velocity image replaces the
@@ -547,7 +550,7 @@ function drawVelocity() {
   $('frameSlider').disabled = !rainShown;
   $('playBtn').disabled = !rainShown;
   if (!r || !r.site) return;
-  if (!state.velocity) { if (r.radar) showFrame(state.frameIdx); return; }
+  if (!state.velocity) { if (r.radar) { showFrame(state.frameIdx); autoPlay(); } return; }
   stopPlay();
   const site = r.site;
   const [, slat, slon] = NEXRAD_SITES.find(([id]) => id === site.id) || [];
@@ -578,14 +581,29 @@ function stopPlay() {
   $('playBtn').textContent = '▶';
 }
 
-function togglePlay() {
-  if (state.playing) return stopPlay();
+// Plays past frames into the forecast, holding on the last frame before starting over.
+function startPlay() {
   const r = state.result;
-  if (!r || !r.radar) return;
+  if (state.playing || !r || !r.radar || state.velocity) return;
   $('playBtn').textContent = '❚❚';
+  let hold = 0;
   state.playing = setInterval(() => {
-    showFrame((state.frameIdx + 1) % r.radar.map.length);
+    const last = r.radar.map.length - 1;
+    if (state.frameIdx === last && hold++ < 3) return;
+    hold = 0;
+    showFrame(state.frameIdx === last ? 0 : state.frameIdx + 1);
   }, 600);
+}
+
+// Start the loop by itself when the Local map is on screen, unless the user paused it.
+function autoPlay() {
+  if (state.autoplay && state.tab === 'local' && document.visibilityState === 'visible') startPlay();
+}
+
+function togglePlay() {
+  state.autoplay = !state.playing;
+  store.set('radarAutoplay', state.autoplay);
+  if (state.playing) stopPlay(); else startPlay();
 }
 
 // ---------- Navy (FNMOC) waves on the map + second-opinion card ----------
@@ -1265,7 +1283,7 @@ function setTab(tab, { remember = true } = {}) {
     const v = tabViews[tab] || defaultView(tab);
     if (v && v.bounds) map.fitBounds(v.bounds); else if (v) map.setView(v.center, v.zoom);
   }
-  if (tab !== 'local') stopPlay();
+  if (tab !== 'local') stopPlay(); else autoPlay();
   // Charts drawn while their tab was hidden have no size; redraw them now.
   if (tab === 'local' && state.result) drawChart(state.result.series);
   // Navy waves come on by themselves the first time Seas & swell is opened.
@@ -1398,7 +1416,8 @@ function bindUi() {
   $('alerts').addEventListener('change', (e) => setAlerts(e.target.checked));
   window.addEventListener('resize', () => state.result && drawChart(state.result.series));
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - state.lastRefresh > 3 * 60000) refresh();
+    if (document.visibilityState !== 'visible') { stopPlay(); return; }   // no animating in the background
+    if (Date.now() - state.lastRefresh > 3 * 60000) refresh(); else autoPlay();
   });
   setInterval(() => {
     if (document.visibilityState === 'visible' && Date.now() - state.lastRefresh > REFRESH_MS) refresh();
