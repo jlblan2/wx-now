@@ -115,8 +115,10 @@ main {
 #map { height: 360px; background: #0d1626; }
 .radar-img { image-rendering: auto; }
 
-.map-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px 0; }
+.map-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px 0; }
 .map-bar input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.radar-toggle { flex-basis: 100%; display: flex; gap: 6px; align-items: center; font-size: 13px; cursor: pointer; }
+.map-bar .radar-toggle input { flex: none; margin: 0; }
 .play {
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
   border-radius: 8px; width: 36px; height: 32px; cursor: pointer;

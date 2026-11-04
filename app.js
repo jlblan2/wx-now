@@ -39,6 +39,7 @@ const state = {
   // The radar loop plays by itself unless the user paused it (or prefers reduced motion).
   autoplay: store.get('radarAutoplay', !matchMedia('(prefers-reduced-motion: reduce)').matches),
   arrows: store.get('arrows', true),
+  radarOn: store.get('radarOn', true),
   velocity: false,
   stormMap: store.get('stormMap', true),
   storms: [],
@@ -543,14 +544,22 @@ function renderMap(r) {
 function drawVelocity() {
   const r = state.result;
   if (velLayer) { velLayer.remove(); velLayer = null; }
+  const on = state.radarOn;
   $('velBtn').classList.toggle('on', state.velocity);
-  $('velLegend').hidden = !state.velocity;
-  const rainShown = !state.velocity;
+  $('velBtn').disabled = !on;
+  $('velLegend').hidden = !(on && state.velocity);
+  const rainShown = on && !state.velocity;
   if (overlay) overlay.setOpacity(rainShown ? 0.85 : 0);
   $('frameSlider').disabled = !rainShown;
   $('playBtn').disabled = !rainShown;
+  if (!on) {
+    stopPlay();
+    $('frameLabel').textContent = 'Radar off';
+    $('frameLabel').classList.remove('fc');
+    return;
+  }
+  if (!state.velocity) { if (r && r.radar) { showFrame(state.frameIdx); autoPlay(); } return; }
   if (!r || !r.site) return;
-  if (!state.velocity) { if (r.radar) { showFrame(state.frameIdx); autoPlay(); } return; }
   stopPlay();
   const site = r.site;
   const [, slat, slon] = NEXRAD_SITES.find(([id]) => id === site.id) || [];
@@ -565,7 +574,7 @@ function drawVelocity() {
 
 function showFrame(i) {
   const r = state.result;
-  if (!r || !r.radar || !overlay || state.velocity) return;
+  if (!r || !r.radar || !overlay || state.velocity || !state.radarOn) return;
   const f = r.radar.map[i];
   overlay.setUrl(r.radar.images[i]);
   $('frameSlider').value = i;
@@ -584,7 +593,7 @@ function stopPlay() {
 // Plays past frames into the forecast, holding on the last frame before starting over.
 function startPlay() {
   const r = state.result;
-  if (state.playing || !r || !r.radar || state.velocity) return;
+  if (state.playing || !r || !r.radar || state.velocity || !state.radarOn) return;
   $('playBtn').textContent = '❚❚';
   let hold = 0;
   state.playing = setInterval(() => {
@@ -1390,6 +1399,12 @@ function bindUi() {
   $('tabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-tab]');
     if (b) setTab(b.dataset.tab);
+  });
+  $('radarOn').checked = state.radarOn;
+  $('radarOn').addEventListener('change', (e) => {
+    state.radarOn = e.target.checked;
+    store.set('radarOn', state.radarOn);
+    drawVelocity();
   });
   $('velBtn').addEventListener('click', () => {
     state.velocity = !state.velocity;
