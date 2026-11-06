@@ -1,5 +1,6 @@
 import { advectField, velocity } from './nowcast.js';
-import { toLatLon, toPixel, velocityImage } from './radar.js';
+import { toLatLon, toPixel, velocityImage, inDomain } from './radar.js';
+import { intlFrames, tileUrl, MAX_NATIVE_ZOOM } from './intlradar.js';
 import { NEXRAD_SITES } from './data.js';
 import { dopplerWinds } from './doppler.js';
 import { activeStorms, category, threatTo, threatText, WARNING_NAMES } from './storms.js';
@@ -110,6 +111,8 @@ async function refresh() {
     loadMarine(loc);
     if (state.tab === 'seas') { loadTides(loc); loadWaterTemp(loc); loadClarity(loc); }
     const { site, quality } = radarCoverage(loc);
+    // Outside the U.S. mosaic the map still gets radar; it does not wait for the model.
+    if (!inDomain(loc.lat, loc.lon)) showIntlRadar();
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
     let radar = null, radarErr = null;
     if (quality > 0) {
@@ -162,9 +165,13 @@ function render() {
 
   let src;
   if (!r.radar) {
-    src = r.quality === 0 && r.site
-      ? `Weather model only — no radar coverage here (nearest radar ${r.site.id} is ${fmtDist(r.site.km)} away)`
-      : 'Weather model only — radar unavailable right now';
+    if (!inDomain(r.loc.lat, r.loc.lon)) {
+      src = 'Weather model forecast. The map shows RainViewer radar, which this forecast does not use';
+    } else {
+      src = r.quality === 0 && r.site
+        ? `Weather model only — no radar coverage here (nearest radar ${r.site.id} is ${fmtDist(r.site.km)} away)`
+        : 'Weather model only — radar unavailable right now';
+    }
   } else if (r.quality < 1) {
     src = `Radar + weather model (edge of radar range, ${r.site.id} ${fmtDist(r.site.km)} away)`;
   } else {
@@ -482,7 +489,7 @@ function initMap() {
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 16, pane: 'shadowPane',
   }).addTo(map);
-  map.attributionControl.addAttribution('Radar: NOAA NEXRAD via Iowa Environmental Mesonet');
+  setNexradAttribution(true);
   map.on('click', (e) => {
     if (state.tab !== 'local') return;   // on other tabs taps are for the map's own details
     state.picked = { lat: e.latlng.lat, lon: e.latlng.lng };
@@ -512,9 +519,13 @@ function renderMap(r) {
   const bar = $('mapBar');
   if (!r.radar) {
     if (overlay) { overlay.remove(); overlay = null; }
+    if (velLayer) { velLayer.remove(); velLayer = null; }
+    if (!inDomain(loc.lat, loc.lon)) { showIntlRadar(); return; }
+    clearIntl();
     bar.hidden = true;
     return;
   }
+  clearIntl();
   bar.hidden = false;
   const { grid, map: frames, pf, mf } = r.radar;
   if (mf.count) {
@@ -573,6 +584,7 @@ function drawVelocity() {
 }
 
 function showFrame(i) {
+  if (intl.active) { showIntlFrame(i); return; }
   const r = state.result;
   if (!r || !r.radar || !overlay || state.velocity || !state.radarOn) return;
   const f = r.radar.map[i];
@@ -591,13 +603,18 @@ function stopPlay() {
 }
 
 // Plays past frames into the forecast, holding on the last frame before starting over.
-function startPlay() {
+function frameCount() {
+  if (intl.active) return intl.layers.length;
   const r = state.result;
-  if (state.playing || !r || !r.radar || state.velocity || !state.radarOn) return;
+  return r && r.radar && overlay ? r.radar.map.length : 0;
+}
+
+function startPlay() {
+  if (state.playing || !frameCount() || state.velocity || !state.radarOn) return;
   $('playBtn').textContent = '❚❚';
   let hold = 0;
   state.playing = setInterval(() => {
-    const last = r.radar.map.length - 1;
+    const last = frameCount() - 1;
     if (state.frameIdx === last && hold++ < 3) return;
     hold = 0;
     showFrame(state.frameIdx === last ? 0 : state.frameIdx + 1);
@@ -614,6 +631,110 @@ function togglePlay() {
   store.set('radarAutoplay', state.autoplay);
   if (state.playing) stopPlay(); else startPlay();
 }
+
+// ---------- radar outside the U.S. mosaic ----------
+// RainViewer's worldwide composite as map tiles: the last two hours, past frames only. It
+// is drawn on the map but the rain forecast does not use it. One tile layer per frame, all
+// preloaded so the loop is smooth; only the current frame has any opacity.
+
+const intl = { active: false, layers: [], idx: 0, seq: 0 };
+
+// The U.S. radar credit shows only while U.S. radar is what the map uses.
+const NEXRAD_ATTR = 'Radar: NOAA NEXRAD via Iowa Environmental Mesonet';
+let nexradAttr = false;
+function setNexradAttribution(on) {
+  if (on === nexradAttr || !map) return;
+  nexradAttr = on;
+  if (on) map.attributionControl.addAttribution(NEXRAD_ATTR); else map.attributionControl.removeAttribution(NEXRAD_ATTR);
+}
+
+function clearIntl() {
+  intl.seq++;   // cancels a load still in flight
+  const was = intl.active;
+  intl.active = false;
+  setNexradAttribution(true);
+  for (const l of intl.layers) l.layer.remove();
+  intl.layers = [];
+  $('velBtn').hidden = $('arrowBtn').hidden = false;
+  $('hintUs').hidden = false;
+  $('hintIntl').hidden = true;
+  if (was) { $('frameSlider').disabled = $('playBtn').disabled = false; }
+}
+
+async function showIntlRadar() {
+  const seq = ++intl.seq;
+  stopPlay();
+  setNexradAttribution(false);
+  $('mapBar').hidden = false;
+  $('velBtn').hidden = $('arrowBtn').hidden = true;
+  $('velLegend').hidden = true;
+  $('hintUs').hidden = true;
+  $('hintIntl').hidden = false;
+  let data = null;
+  try { data = await intlFrames(); } catch { /* shown as unavailable below */ }
+  if (seq !== intl.seq) return;   // the place changed, or a newer call took over
+  if (!data) {
+    for (const l of intl.layers) l.layer.remove();
+    intl.layers = [];
+    intl.active = false;
+    $('frameSlider').disabled = $('playBtn').disabled = true;
+    $('frameLabel').textContent = 'Radar unavailable';
+    $('frameLabel').classList.remove('fc');
+    return;
+  }
+  const keep = new Set(data.frames.map((f) => f.path));
+  intl.layers = intl.layers.filter((l) => { if (keep.has(l.path)) return true; l.layer.remove(); return false; });
+  for (const f of data.frames) {
+    if (intl.layers.some((l) => l.path === f.path)) continue;
+    const layer = L.tileLayer(tileUrl(data.host, f.path), {
+      pane: 'tabLocal', opacity: 0, maxNativeZoom: MAX_NATIVE_ZOOM, maxZoom: 16,
+      updateWhenIdle: true, keepBuffer: 1, interactive: false,
+      attribution: 'Radar: <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a>',
+    });
+    intl.layers.push({ path: f.path, time: f.time, layer });
+  }
+  intl.layers.sort((a, b) => a.time - b.time);
+  intl.active = true;
+  intl.idx = intl.layers.length - 1;
+  const slider = $('frameSlider');
+  slider.max = intl.layers.length - 1;
+  slider.value = intl.idx;
+  state.frameIdx = intl.idx;
+  drawIntl();
+}
+
+// Puts the loop on the map (only while the Local tab and the Show radar box allow it, so
+// hidden tabs do not keep fetching tiles) or takes it off again.
+function drawIntl() {
+  if (!intl.active) return;
+  const show = state.radarOn && state.tab === 'local';
+  for (const l of intl.layers) {
+    if (show) { if (!map.hasLayer(l.layer)) l.layer.addTo(map); } else l.layer.remove();
+  }
+  $('frameSlider').disabled = $('playBtn').disabled = !state.radarOn;
+  if (!state.radarOn) {
+    stopPlay();
+    $('frameLabel').textContent = 'Radar off';
+    $('frameLabel').classList.remove('fc');
+    return;
+  }
+  if (!show) return;
+  showIntlFrame(state.frameIdx);
+  autoPlay();
+}
+
+function showIntlFrame(i) {
+  if (!intl.active || !state.radarOn || !intl.layers[i]) return;
+  intl.layers.forEach((l, k) => l.layer.setOpacity(k === i ? 0.8 : 0));
+  intl.idx = i;
+  state.frameIdx = i;
+  $('frameSlider').value = i;
+  const ago = Math.max(0, Math.round((Date.now() - intl.layers[i].time) / 60000));
+  $('frameLabel').textContent = `${fmtTime(new Date(intl.layers[i].time))} · ${ago < 2 ? 'now' : `${ago} min ago`}`;
+  $('frameLabel').classList.remove('fc');
+}
+
+function applyRadarToggle() { if (intl.active) drawIntl(); else drawVelocity(); }
 
 // ---------- Navy (FNMOC) waves on the map + second-opinion card ----------
 
@@ -1292,6 +1413,7 @@ function setTab(tab, { remember = true } = {}) {
     const v = tabViews[tab] || defaultView(tab);
     if (v && v.bounds) map.fitBounds(v.bounds); else if (v) map.setView(v.center, v.zoom);
   }
+  drawIntl();   // overseas radar tiles are on the map only while the Local tab shows
   if (tab !== 'local') stopPlay(); else autoPlay();
   // Charts drawn while their tab was hidden have no size; redraw them now.
   if (tab === 'local' && state.result) drawChart(state.result.series);
@@ -1404,7 +1526,7 @@ function bindUi() {
   $('radarOn').addEventListener('change', (e) => {
     state.radarOn = e.target.checked;
     store.set('radarOn', state.radarOn);
-    drawVelocity();
+    applyRadarToggle();
   });
   $('velBtn').addEventListener('click', () => {
     state.velocity = !state.velocity;
