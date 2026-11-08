@@ -10,11 +10,11 @@ export async function fetchModel(lat, lon) {
   const p = new URLSearchParams({
     latitude: lat.toFixed(4), longitude: lon.toFixed(4),
     current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day,' +
-      'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+      'wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility',
     minutely_15: 'precipitation',
     forecast_minutely_15: '6', past_minutely_15: '1',
     hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,is_day,' +
-      'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+      'wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,' +
       'precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',
     forecast_days: '7',
@@ -38,6 +38,7 @@ export async function fetchModel(lat, lon) {
       wind: h.wind_speed_10m[i],
       windDir: h.wind_direction_10m[i],
       gust: h.wind_gusts_10m[i],
+      vis: h.visibility ? h.visibility[i] : null,
     })).filter((x) => x.time > now - 3600000).slice(0, 25);
     const days = (d.time || []).map((t, i) => ({
       time: t * 1000,
@@ -54,9 +55,13 @@ export async function fetchModel(lat, lon) {
       timezone: j.timezone,
       tempC: c.temperature_2m ?? null,
       code: c.weather_code ?? null,
+      // The model's code for the precipitation of the coming hours (rain, snow, freezing rain),
+      // which knows the air aloft; null when it has none in the next 3 hours.
+      precipCode: [c.weather_code, ...hours.slice(0, 4).map((x) => x.code)].find((k) => k >= 51) ?? null,
       current: {
         feels: c.apparent_temperature, humidity: c.relative_humidity_2m, day: c.is_day === 1,
         wind: c.wind_speed_10m, windDir: c.wind_direction_10m, gust: c.wind_gusts_10m,
+        vis: c.visibility ?? null,
       },
       // Each value is the total for the 15 minutes ending at that time.
       steps: (m.time || []).map((t, i) => ({ end: t * 1000, rate: (m.precipitation[i] || 0) * 4 })),

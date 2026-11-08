@@ -11,7 +11,7 @@ import { getJson } from './compare.js';
 export const HISTORY_DAYS = 7;
 const MAX_STATION_KM = 60;
 
-function km(lat1, lon1, lat2, lon2) {
+export function km(lat1, lon1, lat2, lon2) {
   const r = Math.PI / 180;
   const a = Math.sin((lat2 - lat1) * r / 2) ** 2 +
     Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin((lon2 - lon1) * r / 2) ** 2;
@@ -32,7 +32,19 @@ export function pastDays(nowMs, timeZone, n = HISTORY_DAYS) {
 }
 
 // Airport stations (ICAO "Kxxx") near the spot, nearest first, plus the place's time zone.
-async function stationsNear(lat, lon) {
+// Remembered per spot, since the current-conditions card (obs.js) asks for the same list.
+const nearCache = new Map();
+export function stationsNear(lat, lon) {
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if (!nearCache.has(key)) {
+    const p = lookupStations(lat, lon);
+    p.catch(() => nearCache.delete(key));
+    nearCache.set(key, p);
+  }
+  return nearCache.get(key);
+}
+
+async function lookupStations(lat, lon) {
   const pt = await getJson(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`, 12000);
   const st = await getJson(pt.properties.observationStations, 12000);
   const list = st.features

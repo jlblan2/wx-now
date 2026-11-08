@@ -167,9 +167,10 @@
   <section data-tab="local" class="card hero">
     <p id="place" class="place">&nbsp;</p>
     <p id="summary" class="summary">Loading…</p>
+    <div id="chips" class="chips" role="group" aria-label="Conditions now"></div>
     <p id="status" class="status"></p>
     <canvas id="chart" aria-label="Chance of precipitation each minute for the next 60 minutes"></canvas>
-    <p class="legend">Chance of rain each minute:
+    <p id="legend" class="legend">Chance of rain each minute:
       <span class="sw" style="background:#78a8ff"></span>light
       <span class="sw" style="background:#2f62e6"></span>moderate
       <span class="sw" style="background:#facd28"></span>heavy
@@ -182,6 +183,15 @@
   <section data-tab="local" id="hourlyCard" class="card" hidden>
     <h2>Next 24 hours <span id="hourlyUnits" class="units"></span></h2>
     <div id="hourly" class="hourly"></div>
+  </section>
+
+  <section data-tab="local" id="aqCard" class="card aq" hidden>
+    <h2>Air quality</h2>
+    <p id="aqHead" class="aq-head"></p>
+    <p id="aqAdvice" class="aq-advice"></p>
+    <div id="aqStrip" class="aq-strip" role="img"></div>
+    <div id="aqTimes" class="aq-times"></div>
+    <p id="aqMeta" class="note"></p>
   </section>
 
   <section data-tab="local" id="dailyCard" class="card" hidden>

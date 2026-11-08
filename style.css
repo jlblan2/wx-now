@@ -291,3 +291,28 @@ footer { color: var(--muted); font-size: 11px; text-align: center; padding: 4px 
 .tide-measured .below { color: #7fb4ff; font-weight: 600; }
 .tide-measured .muted { color: var(--muted); }
 .level-label { color: #fff; font: 700 11px -apple-system, system-ui, sans-serif; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; background: none; border: none; }
+
+/* Conditions-now chips under the headline: precipitation type, visibility, air quality. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.chips:empty { display: none; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text); white-space: nowrap; text-decoration: none; }
+.chip.snow { background: #e9eeff; color: #1b2a6b; border-color: #e9eeff; }
+.chip.mix { background: #c9c1ff; color: #24165e; border-color: #c9c1ff; }
+.chip.ice { background: #ffb3d9; color: #5c0b35; border-color: #ffb3d9; }
+.chip.fair { border-color: #facd28; color: #facd28; }
+.chip.poor { background: #ff9f1c; color: #111; border-color: #ff9f1c; }
+.chip.bad { background: #e5383b; color: #fff; border-color: #e5383b; }
+.chip small { font-weight: 400; opacity: 0.8; }
+
+/* Air quality card */
+.aq-head { margin: 0 0 6px; font-size: 17px; line-height: 1.35; }
+.aq-badge { display: inline-block; min-width: 2.4em; padding: 1px 8px; margin-right: 6px; border-radius: 8px; text-align: center; font-weight: 700; }
+.aq-head .next { display: block; color: var(--muted); font-size: 14px; margin-top: 3px; }
+.aq-advice { margin: 0 0 10px; font-size: 14px; }
+.aq-strip { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; height: 56px; align-items: end; }
+.aq-strip span { border-radius: 2px 2px 0 0; min-height: 3px; }
+.aq-times { position: relative; height: 16px; margin-top: 3px; font-size: 11px; color: var(--muted); }
+.aq-times span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.aq-times span:first-child { transform: none; }
+.card.aq { scroll-margin-top: 120px; }

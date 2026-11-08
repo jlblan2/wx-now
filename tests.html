@@ -17,7 +17,9 @@ import {
   makeField, estimateMotion, pointForecast, hindcast, dbzToRate, RAIN_RATE, velocity,
 } from './nowcast.js';
 import { visibilityM, describe, pickS2 } from './clarity.js';
-import { summarize, changeWindow } from './forecast.js';
+import { obsPhase, metarPhase, metarObscured } from './obs.js';
+import { summarize, changeWindow, precipNoun, wetBulb } from './forecast.js';
+import { nearestReadings, combine, aqiCat } from './airquality.js';
 import { pastDays, observedDaily, noaaDaily, navyHistDaily, scores } from './history.js';
 
 const out = document.getElementById('out');
@@ -142,6 +144,37 @@ check('Stationary storm reads as stationary', Math.hypot(vs.u, vs.v) * DX * 60 <
 }
 
 // 7. Water clarity: Kd490 to visibility, matching Copernicus Marine's own Secchi depths
+// Rain or snow
+check('Wet-bulb 20 °C / 50% is about 13.7 °C (Stull)', Math.abs(wetBulb(20, 50) - 13.7) < 0.3, wetBulb(20, 50).toFixed(2));
+check('Dry air at 2 °C gives snow (wet-bulb below freezing)', precipNoun(2, { rh: 40 }) === 'snow');
+check('Humid air at 2 °C gives rain and snow', precipNoun(2, { rh: 95 }) === 'rain and snow');
+check('Mild air gives rain', precipNoun(12, { rh: 90 }) === 'rain' && precipNoun(null) === 'rain');
+check('Model snow code wins over the surface temperature', precipNoun(2.5, { rh: 99, code: 73 }) === 'snow');
+check('Model freezing rain code', precipNoun(-1, { code: 66 }) === 'freezing rain');
+check('Station report wins over everything', precipNoun(-5, { obs: 'rain', code: 73 }) === 'rain');
+check('NWS present weather to type',
+  obsPhase([{ weather: 'snow' }]) === 'snow' && obsPhase([{ weather: 'rain' }, { weather: 'snow' }]) === 'rain and snow' &&
+  obsPhase([{ weather: 'freezing_rain' }]) === 'freezing rain' && obsPhase([{ weather: 'fog_mist' }]) === null && obsPhase([]) === null);
+
+check('METAR codes to type', metarPhase(['-SN', 'BR']) === 'snow' && metarPhase(['RASN']) === 'rain and snow' &&
+  metarPhase(['-FZRA']) === 'freezing rain' && metarPhase(['PL']) === 'sleet' && metarPhase(['TSRA']) === 'rain' && metarPhase(['BR']) === null);
+check('METAR obscuration', metarObscured(['FG']) === 'fog' && metarObscured(['-RA', 'BR']) === 'mist' && metarObscured(['FU']) === 'smoke' && metarObscured([]) === null);
+
+// Air quality
+{
+  const now = Date.UTC(2026, 10, 8, 21);
+  const feat = (name, lat, aqi) => ({ attributes: { SiteName: name, DataSource: 'x', Latitude: lat, Longitude: -81.6, ValidTime: now - 3600000, Status: 'Active', ...aqi } });
+  const rd = nearestReadings([feat('far', 30.6, { PM25_AQI: 80 }), feat('near', 30.35, { PM25_AQI: 40, OZONE_AQI: null }),
+    feat('oz', 30.45, { OZONE_AQI: '33.0' }), feat('away', 33, { PM25_AQI: 150 })], 30.33, -81.6, now);
+  check('Nearest monitor per pollutant, within 50 km', rd.pm25.site === 'near' && rd.pm25.aqi === 40 && rd.ozone.aqi === 33 && !rd.pm10, JSON.stringify(rd));
+  const hrs = Array.from({ length: 25 }, (_, i) => ({ time: now + i * 3600000, pm25: 66, pm10: 10, ozone: i >= 15 && i <= 18 ? 120 : 40, dust: 0 }));
+  const aq = combine({ pm25: { aqi: 42, site: 's', km: 3, time: now } }, hrs, now);
+  check('Current AQI is the measured one', aq.current.aqi === 42 && aq.current.measured && aq.current.pollutant === 'pm25');
+  check('Forecast is nudged to the measurement, fading out', aq.series[0].aqi === 42 && aq.series[12].aqi > 42 && aq.series[12].aqi < 66, `${aq.series[0].aqi} ${aq.series[12].aqi}`);
+  check('Outlook finds the ozone peak', aq.outlook.kind === 'worse' && aq.outlook.cat === 2 && aq.outlook.peak.pollutant === 'ozone', JSON.stringify(aq.outlook));
+  check('AQI categories', aqiCat(50) === 0 && aqiCat(51) === 1 && aqiCat(101) === 2 && aqiCat(400) === 5);
+}
+
 check('Kd 0.217 sees about 3.2 m (Copernicus 3.20)', Math.abs(visibilityM(0.217) - 3.2) < 0.3, visibilityM(0.217).toFixed(2));
 check('Kd 0.046 sees about 19.8 m (Copernicus 19.80)', Math.abs(visibilityM(0.046) - 19.8) < 3, visibilityM(0.046).toFixed(1));
 check('Visibility stays within 0.1-40 m', visibilityM(50) === 0.1 && visibilityM(0.001) === 40);

@@ -132,7 +132,7 @@ async function forecastAt(loc) {
   const model = await modelP;
   if (!radar && !model) return null;
   const series = blend(radar, model, radar ? quality : 0);
-  const noun = precipNoun(model ? model.tempC : null);
+  const noun = precipNoun(model ? model.tempC : null, model ? { code: model.precipCode, rh: model.current.humidity } : {});
   return { summary: summarize(series, noun, radar && radar.echo === 0), series, noun };
 }
 

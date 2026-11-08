@@ -211,7 +211,8 @@ USING THE APP
 -------------
 Three tabs under the title keep the screen uncluttered; the app remembers the last
 one you used. Each tab has its own forecasts:
-  Local weather  - rain in the next hour, the radar map, next 24 hours, 7 days, the NOAA vs
+  Local weather  - rain or snow in the next hour, visibility, the radar map, next 24 hours,
+                   air quality, 7 days, the NOAA vs
                    Navy second opinion and current details.
   Hurricanes     - active Atlantic storms (or a note when there are none), NHC's
                    tropical weather outlook, the storm map and storm surge maps.
@@ -256,13 +257,33 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   Rain timing from radar is usually right to within about 10 minutes, so the range is
   never narrower than that, and it widens the further ahead the change is. Showers that
   pop up where nothing is on radar yet cannot be forecast.
+- Under the headline are small indicators for right now:
+    Precipitation type - shown when rain or snow is in the hour, or when it is cold
+      enough that it would not be rain: drop = rain, snowflake (white) = snow,
+      purple = rain and snow, pink = sleet or freezing rain. It comes from what the
+      nearest airport reports falling, else the weather model, else the temperature and
+      humidity (snow can fall at 35-37 F when the air is dry). Radar alone cannot tell
+      rain from snow. The headline, chart and alerts then say "snow" instead of "rain".
+    Eye = visibility, measured at the nearest airport when there is one (yellow = under
+      3 miles, orange = under 1 mile, red = under 1/4 mile), with fog, mist, haze or
+      smoke named when that is the cause. Details > Visibility gives it in nautical
+      miles too, where it was measured, and when it is forecast to drop below 1 mile.
+    AQI = air quality; tap it to jump to the Air quality card.
 - The chart shows the chance of rain for each minute of the next hour, with clock times
   along the bottom. Its colour shows how hard it would rain (light blue = light, blue =
   moderate, yellow = heavy, the same colours as the radar map). Above the dashed 50% line
   rain is likely; that is where the headline puts the start and stop. The orange bands
   are the likely start and end windows, and the orange line in each is the most likely
-  minute.
+  minute. For snow the colours are white (light), lavender (moderate) and purple
+  (heavy); for sleet or freezing rain, pink.
 - "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.
+- "Air quality" gives the Air Quality Index in its EPA colour (green = good, yellow =
+  moderate, orange = unhealthy for sensitive groups, red = unhealthy, purple = very
+  unhealthy, maroon = hazardous), what is causing it (fine particles such as smoke or
+  haze, ozone, dust including Saharan dust), whether it gets better or worse in the next
+  24 hours, and what to do about it. The bars show each of the next 24 hours. "Now" is
+  measured at the nearest EPA monitor (named under the bars); the hours ahead are a
+  forecast model adjusted to match it. Outside the U.S. it is the model only.
 - Radar map: press Play to see the last 30 minutes and the next 60. The dashed line
   shows where your next hour of weather is coming from.
 - White arrows on the map show which way the rain is moving, tracked from radar
