@@ -186,8 +186,8 @@ function render() {
     lines.push(['Wind', `From ${compass(c.windDir)} at ${fmtSpeed(c.wind)}, gusts ${fmtSpeed(c.gust)}`]);
   }
   const now = r.series[0];
-  if (r.summary.startConf || r.summary.stopConf) {
-    lines.push(['Timing', '"On time" is the chance the rain starts or stops within 5 minutes of the time shown, from the minute-by-minute rain chances.']);
+  if (r.summary.startWin || r.summary.stopWin) {
+    lines.push(['Timing', 'Start and stop times are a likely range (the shaded bands on the chart). Rain timing from radar is usually right to within about 10 minutes; showers that pop up where none were on radar cannot be forecast.']);
   }
   lines.push(['Right now', now.prob >= P_ON ? `${cap(intensityWord(now.intensity))} ${r.noun}, ${fmtRate(now.intensity)}` : `No ${r.noun}`]);
   if (r.radar) {
@@ -278,65 +278,96 @@ function renderOutlook(model) {
   }).join('');
 }
 
-function rateToHeight(mm) {
-  // Light / moderate / heavy bands each take a third of the chart, log scale inside each.
-  const stops = [[0.3, 0], [2.5, 1 / 3], [7.6, 2 / 3], [40, 1]];
-  if (mm <= stops[0][0]) return 0;
-  for (let i = 1; i < stops.length; i++) {
-    const [r1, h1] = stops[i - 1], [r2, h2] = stops[i];
-    if (mm <= r2) return h1 + (h2 - h1) * Math.log(mm / r1) / Math.log(r2 / r1);
-  }
-  return 1;
-}
+// Rain intensity colours (light, moderate, heavy), the same as the radar map's and the legend's.
+const CHANCE_COLORS = { 'very light': '#78a8ff', light: '#78a8ff', moderate: '#2f62e6', heavy: '#facd28' };
 
+// The next 60 minutes as the chance of rain at each minute (0-100%), coloured by how hard it
+// would rain, with clock times along the bottom. The 50% line is where the headline puts the
+// start and stop; the shaded bands are the likely start / stop windows.
 function drawChart(series) {
   const cv = $('chart');
+  const r = state.result;
   const dpr = window.devicePixelRatio || 1;
   const W = cv.clientWidth, H = cv.clientHeight;
   cv.width = W * dpr; cv.height = H * dpr;
   const ctx = cv.getContext('2d');
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
-  const left = 54, right = 8, top = 8, bottom = 22;
+  const left = 34, right = 10, top = 16, bottom = 20;
   const pw = W - left - right, ph = H - top - bottom;
   const css = getComputedStyle(document.documentElement);
   const muted = css.getPropertyValue('--muted').trim();
   const grid = css.getPropertyValue('--border').trim();
-  const bar = css.getPropertyValue('--rain').trim();
-
+  const accent = css.getPropertyValue('--accent').trim();
+  const X = (m) => left + pw * m / 60, Y = (p) => top + ph * (1 - p);
+  const t0 = (r && r.t0) || Date.now();
   ctx.font = '11px -apple-system, system-ui, sans-serif';
-  ctx.fillStyle = muted; ctx.strokeStyle = grid; ctx.lineWidth = 1;
-  [['Heavy', 1], ['Moderate', 2 / 3], ['Light', 1 / 3]].forEach(([label, h]) => {
-    const y = top + ph * (1 - h);
-    ctx.beginPath(); ctx.moveTo(left, y + 0.5); ctx.lineTo(left + pw, y + 0.5); ctx.stroke();
-    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-    ctx.fillText(label, left - 6, y + 2);
-  });
-  ctx.beginPath(); ctx.moveTo(left, top + ph + 0.5); ctx.lineTo(left + pw, top + ph + 0.5); ctx.stroke();
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  for (let m = 0; m <= 60; m += 10) {
-    ctx.fillText(m === 0 ? 'Now' : `${m}m`, left + pw * m / 60, top + ph + 6);
-  }
 
-  const bw = pw / 61;
-  ctx.fillStyle = bar;
-  series.forEach((s) => {
-    if (s.prob < 0.05) return;
-    const h = Math.max(2, rateToHeight(Math.max(s.intensity, 0.35)) * ph);
-    ctx.globalAlpha = 0.25 + 0.75 * Math.min(1, s.prob);
-    ctx.fillRect(left + s.m * bw + 0.5, top + ph - h, Math.max(1, bw - 1), h);
+  // Grid: 0 / 50 / 100 %.
+  ctx.strokeStyle = grid; ctx.lineWidth = 1; ctx.fillStyle = muted;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (const p of [0, 0.5, 1]) {
+    const y = Math.round(Y(p)) + 0.5;
+    ctx.setLineDash(p === 0.5 ? [3, 3] : []);
+    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(left + pw, y); ctx.stroke();
+    ctx.fillText(`${p * 100}%`, left - 5, y);
+  }
+  ctx.setLineDash([]);
+
+  // Chance of rain, one column per minute, coloured by intensity.
+  series.forEach((p, i) => {
+    if (i === 60 || p.prob < 0.05) return;
+    const pr = (p.prob + series[i + 1].prob) / 2;
+    ctx.fillStyle = CHANCE_COLORS[intensityWord(p.intensity)];
+    ctx.globalAlpha = pr >= P_ON ? 0.95 : 0.55;
+    ctx.fillRect(Math.round(X(i)), Y(pr), Math.round(X(i + 1)) - Math.round(X(i)), top + ph - Y(pr));
   });
   ctx.globalAlpha = 1;
-
-  // Probability line
-  ctx.strokeStyle = css.getPropertyValue('--accent').trim();
-  ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  // Outline of the chance.
+  ctx.strokeStyle = '#eaf1fb'; ctx.lineWidth = 1.25;
   ctx.beginPath();
-  series.forEach((s, i) => {
-    const x = left + (s.m + 0.5) * bw, y = top + ph * (1 - s.prob);
-    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-  });
-  ctx.stroke(); ctx.setLineDash([]);
+  series.forEach((p, i) => (i ? ctx.lineTo(X(i), Y(p.prob)) : ctx.moveTo(X(i), Y(p.prob))));
+  ctx.stroke();
+
+  // The 50% line ("likely") stays visible over the rain.
+  ctx.strokeStyle = 'rgba(234, 241, 251, 0.55)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(left, Math.round(Y(0.5)) + 0.5); ctx.lineTo(left + pw, Math.round(Y(0.5)) + 0.5); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Likely start / stop windows.
+  const s = r && r.summary;
+  const bands = [];
+  if (s && s.startWin) bands.push([s.startWin, s.start, 'starts']);
+  if (s && s.stopWin) bands.push([s.stopWin, s.stop, 'ends']);
+  for (const [[a, b], m, label] of bands) {
+    ctx.fillStyle = accent; ctx.globalAlpha = 0.22;
+    ctx.fillRect(X(a), top, X(b) - X(a), ph);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = accent; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(X(m), top); ctx.lineTo(X(m), top + ph); ctx.stroke();
+    ctx.fillStyle = accent; ctx.textBaseline = 'bottom';
+    ctx.textAlign = X(m) < left + 20 ? 'left' : X(m) > left + pw - 20 ? 'right' : 'center';
+    ctx.fillText(label, X(m), top - 2);
+  }
+
+  // Clock times every 15 minutes (and Now).
+  ctx.fillStyle = muted; ctx.textBaseline = 'top';
+  const first = Math.ceil(t0 / 900000) * 900000;
+  ctx.textAlign = 'left'; ctx.fillText('Now', left, top + ph + 5);
+  let lastRight = left + ctx.measureText('Now').width + 6;
+  for (let t = first; t <= t0 + 3600000; t += 900000) {
+    const m = (t - t0) / 60000;
+    // On a phone, drop "AM"/"PM" so the times fit; skip any that would overlap the one before.
+    const label = pw < 420 ? timeOf(t).replace(/\s*[AaPp]\.?[Mm]\.?$/, '') : timeOf(t);
+    const tw = ctx.measureText(label).width;
+    const align = m > 55 ? 'right' : 'center';
+    const x0 = align === 'right' ? X(m) - tw : X(m) - tw / 2;
+    if (x0 < lastRight) continue;
+    lastRight = x0 + tw + 6;
+    ctx.textAlign = align;
+    ctx.fillText(label, X(m), top + ph + 5);
+    ctx.beginPath(); ctx.moveTo(X(m) + 0.5, top + ph); ctx.lineTo(X(m) + 0.5, top + ph + 3); ctx.strokeStyle = grid; ctx.stroke();
+  }
 }
 
 // ---------- map ----------

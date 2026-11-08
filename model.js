@@ -68,12 +68,20 @@ export async function fetchModel(lat, lon) {
   }
 }
 
-// Model rain rate (mm/h) at a moment in time.
+// Model rain rate (mm/h) at a moment in time. Each 15-minute total is placed at the middle of
+// its period and the rate is interpolated between them, so the forecast does not jump in
+// quarter-hour steps.
 export function modelRateAt(model, ms) {
-  for (const s of model.steps) {
-    if (ms <= s.end && ms > s.end - 15 * 60000) return s.rate;
+  const st = model.steps, mid = (s) => s.end - 7.5 * 60000;
+  if (!st.length || ms <= st[0].end - 15 * 60000 || ms > st[st.length - 1].end) return 0;
+  if (ms <= mid(st[0])) return st[0].rate;
+  for (let i = 1; i < st.length; i++) {
+    if (ms <= mid(st[i])) {
+      const f = (ms - mid(st[i - 1])) / (mid(st[i]) - mid(st[i - 1]));
+      return st[i - 1].rate + (st[i].rate - st[i - 1].rate) * f;
+    }
   }
-  return 0;
+  return st[st.length - 1].rate;
 }
 
 // WMO weather codes -> [label, day icon, night icon]

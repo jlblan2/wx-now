@@ -17,6 +17,7 @@ import {
   makeField, estimateMotion, pointForecast, hindcast, dbzToRate, RAIN_RATE, velocity,
 } from './nowcast.js';
 import { visibilityM, describe, pickS2 } from './clarity.js';
+import { summarize, changeWindow } from './forecast.js';
 import { pastDays, observedDaily, noaaDaily, navyHistDaily, scores } from './history.js';
 
 const out = document.getElementById('out');
@@ -123,6 +124,22 @@ const mfStill = estimateMotion(still);
 const vs = velocity(mfStill, 150, 150);
 check('Stationary storm reads as stationary', Math.hypot(vs.u, vs.v) * DX * 60 < 3,
   `${(Math.hypot(vs.u, vs.v) * DX * 60).toFixed(2)} km/h`);
+
+// 6b. Rain start / stop times and their likely windows
+{
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const mk = (fn) => Array.from({ length: 61 }, (_, m) => ({ m, prob: fn(m), intensity: 2 }));
+  // A band of rain whose chance rises through 50% at minute 20 and falls through it at minute 45.
+  const s = summarize(mk((m) => clamp((m - 14) / 12) * clamp((57 - m) / 12)), 'rain', false);
+  check('Rain starts where the chance passes 50%', s.start === 20, s.start);
+  check('Rain stops where the chance drops below 50% (not later)', s.stop === 52, s.stop);
+  check('Start window brackets the start', s.startWin[0] < 20 && s.startWin[1] > 20, s.startWin.join('-'));
+  check('Stop window brackets the stop', s.stopWin[0] < 52 && s.stopWin[1] > 52, s.stopWin.join('-'));
+  const w5 = changeWindow(mk((m) => (m >= 5 ? 1 : 0)), 5, true), w40 = changeWindow(mk((m) => (m >= 40 ? 1 : 0)), 40, true);
+  check('Windows widen with lead time', w40[1] - w40[0] > w5[1] - w5[0], `${w5.join('-')} vs ${w40.join('-')}`);
+  const now = summarize(mk((m) => clamp((30 - m) / 10)), 'rain', false);
+  check('Raining now, stopping at the 50% crossing', now.raining && now.stop === 26, now.stop);
+}
 
 // 7. Water clarity: Kd490 to visibility, matching Copernicus Marine's own Secchi depths
 check('Kd 0.217 sees about 3.2 m (Copernicus 3.20)', Math.abs(visibilityM(0.217) - 3.2) < 0.3, visibilityM(0.217).toFixed(2));
