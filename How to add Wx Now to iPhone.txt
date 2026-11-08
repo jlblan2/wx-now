@@ -250,14 +250,18 @@ alert opens the Hurricanes tab; tapping a marine alert opens Seas & swell.
   6 ft, red = over 9 ft). During an Atlantic storm that threatens the US, a "Live
   forecast" choice appears with NHC's actual surge forecast. For coastal locations the
   details at the bottom also list "Storm surge risk (NHC)" by hurricane category.
-- The headline gives the next hour in plain words, with the local time of each change
-  and how likely that time is to be right, for example
-  "Light rain starting in 12 min (2:42 PM - 85% on time), stopping 28 min later
-  (3:10 PM - 85% on time)". "On time" means within 5 minutes of the time shown. It is
-  high when radar shows rain arriving or ending sharply, and low when the rain builds or
-  fades gradually, so the exact minute is uncertain.
-- The bar chart shows rain minute by minute. Faded bars mean the forecast is less
-  certain; the dashed orange line is the chance of rain.
+- The headline gives the next hour in plain words, with the likely range of local times
+  for each change, for example
+  "Light rain starting in about 12 min (likely 2:36-2:48 PM, ending 3:02-3:18 PM)".
+  Rain timing from radar is usually right to within about 10 minutes, so the range is
+  never narrower than that, and it widens the further ahead the change is. Showers that
+  pop up where nothing is on radar yet cannot be forecast.
+- The chart shows the chance of rain for each minute of the next hour, with clock times
+  along the bottom. Its colour shows how hard it would rain (light blue = light, blue =
+  moderate, yellow = heavy, the same colours as the radar map). Above the dashed 50% line
+  rain is likely; that is where the headline puts the start and stop. The orange bands
+  are the likely start and end windows, and the orange line in each is the most likely
+  minute.
 - "Next 24 hours" scrolls sideways. "7 days" shows the week ahead.
 - Radar map: press Play to see the last 30 minutes and the next 60. The dashed line
   shows where your next hour of weather is coming from.

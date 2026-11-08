@@ -16,7 +16,9 @@ iPhone as a home-screen web app; see [How to add Wx Now to iPhone](How%20to%20ad
    smoothed into a motion field (`nowcast.js`).
 4. **Extrapolation** — from your location the app traces back along the motion field to see
    which rain arrives each minute. A neighbourhood that widens with lead time gives the
-   probability and intensity.
+   probability and intensity. Rain starts and stops where the chance crosses 50%; the
+   likely window around each is where it crosses 25% and 75%, never narrower than the
+   measured timing error (about 10 min, wider at longer leads) (`changeWindow` in `forecast.js`).
 5. **Self-check** — each update re-forecasts the latest radar frame from 30 minutes earlier
    and scores it, shown next to a "storms stand still" baseline.
 6. **Beyond radar** — offshore or far from a radar site, the forecast blends toward the

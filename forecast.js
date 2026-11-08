@@ -108,9 +108,11 @@ export function blend(radar, model, quality) {
   return series;
 }
 
+// Rain "stops" at the first minute the chance drops below P_ON and stays below for 5 minutes.
+// (Using the same 50% crossing as the start keeps stop times from running late.)
 function endAfter(series, from) {
   for (let m = from; m <= 56; m++) {
-    if (series.slice(m, m + 5).every((s) => s.prob < P_OFF)) return m;
+    if (series.slice(m, m + 5).every((s) => s.prob < P_ON)) return m;
   }
   return null;
 }
@@ -120,30 +122,46 @@ function typicalIntensity(series, a, b) {
   return xs.length ? xs[Math.floor(xs.length / 2)] : 0;
 }
 
-// Chance that rain starts (or stops) within TIMING_WINDOW minutes of the minute shown, read
-// from the minute-by-minute probabilities: how much the chance of rain rises (or falls)
-// across that window. Rounded to 5%.
-export const TIMING_WINDOW = 5;
-function timingConf(series, m, rising) {
-  const at = (k) => series[Math.max(0, Math.min(series.length - 1, k))].prob;
-  const d = rising ? at(m + TIMING_WINDOW) - at(m - TIMING_WINDOW - 1) : at(m - TIMING_WINDOW - 1) - at(m + TIMING_WINDOW);
-  return Math.max(5, Math.min(95, Math.round(d * 20) * 5));
+// Likely window around a start (rising) or stop at minute m: from where the chance of rain
+// passes 25% to where it passes 75% (the forecast's own spread), never narrower than the
+// typical error of radar rain timing, which grows with lead time (checked against airport
+// "rain began" reports: about 10 minutes on average). Returns [from, to] in minutes.
+export function changeWindow(series, m, rising) {
+  const last = series.length - 1;
+  const p = (k) => series[Math.max(0, Math.min(last, k))].prob;
+  // Nearest minute at or after (step 1) / before (step -1) m, within 20 min, where test passes.
+  const find = (step, test) => {
+    for (let k = m; k >= 0 && k <= last && Math.abs(k - m) <= 20; k += step) if (test(p(k))) return k;
+    return m;
+  };
+  const a = rising ? find(-1, (x) => x < P_MAYBE) + 1 : find(-1, (x) => x >= 0.75) + 1;
+  const b = rising ? find(1, (x) => x >= 0.75) : find(1, (x) => x < P_MAYBE);
+  const half = 3 + Math.round(m / 10);
+  return [Math.max(0, Math.min(a, m - half)), Math.min(60, Math.max(b, m + half))];
 }
 
-// The headline as HTML, with the local clock time of each change and how likely that time is
-// to be right (within TIMING_WINDOW minutes), e.g.
-// "Light rain starting in 12 min (3:42 PM · 70% on time)". timeOf formats a time in the
-// selected place's zone.
+// Clock-time range, e.g. "3:38–3:52 PM" (am/pm written once when both match).
+function timeRange(t0, [a, b], timeOf) {
+  const x = timeOf(t0 + a * 60000), y = timeOf(t0 + b * 60000);
+  const ax = x.match(/^(.*?)\s*([AaPp]\.?[Mm]\.?)$/), by = y.match(/^(.*?)\s*([AaPp]\.?[Mm]\.?)$/);
+  return ax && by && ax[2] === by[2] ? `${ax[1]}–${y}` : `${x}–${y}`;
+}
+
+// The headline as HTML: the change in plain words with a likely clock-time range, e.g.
+// "Light rain starting in about 12 min (3:38–3:52 PM, ending 4:04–4:18 PM)".
+// timeOf formats a time in the selected place's zone.
 export function headline(s, noun, t0, timeOf) {
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const at = (m, conf) => ` <span class="when">(${timeOf(t0 + m * 60000)}${conf ? ` · ${conf}% on time` : ''})</span>`;
+  const when = (t) => ` <span class="when">(${t})</span>`;
   const Word = s.word ? cap(s.word) : '';
-  if (s.raining && s.stop) return `${Word} ${noun} stopping in ${s.stop} min${at(s.stop, s.stopConf)}`;
-  if (!s.raining && s.start > 0 && s.word) {
-    const tail = s.stop ? `, stopping ${s.stop - s.start} min later${at(s.stop, s.stopConf)}` : '';
-    return `${Word} ${noun} starting in ${s.start} min${at(s.start, s.startConf)}${tail}`;
+  if (s.raining && s.stop) {
+    return `${Word} ${noun} stopping in about ${s.stop} min${when(`likely ${timeRange(t0, s.stopWin, timeOf)}`)}`;
   }
-  if (s.maybe) return `Possible ${noun} in about ${s.maybe} min${at(s.maybe)}, ${s.chance}% chance`;
+  if (!s.raining && s.start > 0 && s.word) {
+    const end = s.stop ? `, ending ${timeRange(t0, s.stopWin, timeOf)}` : '';
+    return `${Word} ${noun} starting in about ${s.start} min${when(`likely ${timeRange(t0, s.startWin, timeOf)}${end}`)}`;
+  }
+  if (s.maybe) return `Possible ${noun} in about ${s.maybe} min${when(`${timeOf(t0 + s.maybe * 60000)}, ${s.chance}% chance`)}`;
   return esc(s.text);
 }
 
@@ -152,18 +170,18 @@ export function summarize(series, noun, radarClear) {
     const stop = endAfter(series, 1);
     const word = intensityWord(typicalIntensity(series, 0, stop ?? 60));
     return {
-      text: stop ? `${cap(word)} ${noun} stopping in ${stop} min` : `${cap(word)} ${noun} for the hour`,
-      start: 0, raining: true, word, stop, stopConf: stop ? timingConf(series, stop, false) : null,
+      text: stop ? `${cap(word)} ${noun} stopping in about ${stop} min` : `${cap(word)} ${noun} for the hour`,
+      start: 0, raining: true, word, stop, stopWin: stop ? changeWindow(series, stop, false) : null,
     };
   }
   const start = series.findIndex((s) => s.prob >= P_ON);
   if (start > 0) {
     const end = endAfter(series, start + 1);
     const word = intensityWord(typicalIntensity(series, start, Math.min(60, start + 15)));
-    const tail = end ? `, stopping ${end - start} min later` : '';
+    const tail = end ? `, stopping about ${end - start} min later` : '';
     return {
-      text: `${cap(word)} ${noun} starting in ${start} min${tail}`, start, raining: false,
-      word, startConf: timingConf(series, start, true), stop: end, stopConf: end ? timingConf(series, end, false) : null,
+      text: `${cap(word)} ${noun} starting in about ${start} min${tail}`, start, raining: false, word,
+      startWin: changeWindow(series, start, true), stop: end, stopWin: end ? changeWindow(series, end, false) : null,
     };
   }
   const maybe = series.findIndex((s) => s.prob >= P_MAYBE);
