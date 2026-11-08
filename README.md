@@ -22,7 +22,22 @@ iPhone as a home-screen web app; see [How to add Wx Now to iPhone](How%20to%20ad
 5. **Self-check** — each update re-forecasts the latest radar frame from 30 minutes earlier
    and scores it, shown next to a "storms stand still" baseline.
 6. **Beyond radar** — offshore or far from a radar site, the forecast blends toward the
-   Open-Meteo / HRRR model, which also gives the temperature that picks rain or snow.
+   Open-Meteo / HRRR model.
+7. **Rain or snow** — radar cannot tell them apart. In order: what the nearest airport
+   station reports falling (METAR via the Iowa Environmental Mesonet, NWS API fallback);
+   the model's snow or freezing-rain code for the next 3 hours (it knows the air aloft);
+   otherwise the wet-bulb temperature (snow at or below 0.5 °C, a mix up to 1.5 °C), since
+   snow reaches the ground at 2-3 °C in dry air (`precipNoun` in `forecast.js`, `obs.js`).
+   The chart colours and a chip under the headline show the type.
+
+**Visibility** is the nearest station's measured value (`obs.js`), or the model's where there
+is none; the model's hourly visibility gives the next 24 hours.
+
+**Air quality** (`airquality.js`): now = the nearest EPA AirNow monitor for each pollutant
+within 50 km (EPA's public ArcGIS layer "Air Now Current Monitor Data Public", hourly NowCast
+AQI, CORS ok, no key); next 24 hours = Open-Meteo's CAMS air quality forecast (US AQI per
+pollutant), shifted to match the measured value with the shift fading out over 24 hours.
+Outside the U.S. it is the model alone.
 
 The same Open-Meteo request also supplies the 24-hour and 7-day forecasts (temperature,
 chance of precipitation, wind and gusts).
@@ -44,7 +59,9 @@ chance of precipitation, wind and gusts).
 | `seatemp.js` | Water temperature card: Open-Meteo marine sea surface temperature at the spot and the nearest NDBC buoys (via `/api/buoys`) |
 | `clarity.js` | Water clarity card (testing): NOAA VIIRS 750 m Kd490 (via `/api/clarity`, `server/clarity.js`), Copernicus Marine 4 km gap-free Secchi depth (public WMTS GetFeatureInfo, no account), and Sentinel-2 Kd490 from the user's own Copernicus Data Space OAuth client (Sentinel Hub Statistical API, called from the phone). Visibility = 0.534 × Kd490^-1.171, fitted to Copernicus' own ZSD/KD490 |
 | `tides.js`, `tidestations.js` | NOAA CO-OPS tide predictions (2,301 Atlantic-side stations) and measured water levels from the nearest of 220 gauges, loaded only in Seas & swell |
-| `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts |
+| `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts, visibility |
+| `obs.js` | Nearest airport station now: visibility, what is falling, fog/haze/smoke |
+| `airquality.js` | Air quality card: EPA AirNow monitors + CAMS forecast, AQI categories and advice |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |
 | `forecast.js` | Forecast pipeline and summary text, shared with the alert server |

@@ -8,9 +8,11 @@ import { SURGE_CLASSES, riskExport, liveExport, surgeRiskAt, riskSummary } from 
 import { tropicalOutlook, RISK_COLORS } from './outlook.js';
 import { zonesByDistance, zoneFor, marineForecast, zoneGeometry } from './marine.js';
 import { fetchModel, describe } from './model.js';
-import { useZoneFor, confirmZone, timeOf, hourOf, dayOf, dayHourOf, whenOf, zoneName, differsFromPhone } from './clock.js';
+import { useZoneFor, confirmZone, timeOf, hourOf, dayOf, dateOf, dayHourOf, whenOf, zoneName, differsFromPhone } from './clock.js';
 import {
-  P_ON, intensityWord, precipNoun, cap, radarCoverage, runRadar, blend, summarize, headline } from './forecast.js';
+  P_ON, intensityWord, precipNoun, wetBulb, PRECIP_ICON, cap, radarCoverage, runRadar, blend, summarize, headline } from './forecast.js';
+import { latestObs, visClass } from './obs.js';
+import { airQuality, AQI_CATS, aqiCat, POLLUTANTS } from './airquality.js';
 import { initPush, reportLocation, pushEnabled, syncMarine, syncWaterTemp, alertServerUrl } from './push.js';
 import { s2Creds, setS2Creds } from './clarity.js';
 import { secondOpinion } from './compare.js';
@@ -114,6 +116,11 @@ async function refresh() {
     // Outside the U.S. mosaic the map still gets radar; it does not wait for the model.
     if (!inDomain(loc.lat, loc.lon)) showIntlRadar();
     const modelP = fetchModel(loc.lat, loc.lon).then((m) => m, () => null);
+    // The nearest station's report (visibility, what is falling); never holds things up long.
+    const obsP = inDomain(loc.lat, loc.lon)
+      ? Promise.race([latestObs(loc.lat, loc.lon).catch(() => null), new Promise((r) => setTimeout(() => r(null), 8000))])
+      : Promise.resolve(null);
+    loadAirQuality(loc);
     let radar = null, radarErr = null;
     if (quality > 0) {
       try {
@@ -121,22 +128,23 @@ async function refresh() {
         radar.map = mapFrames(radar);
       } catch (e) { radarErr = e; }
     }
-    const show = (model) => {
+    const show = (model, obs = null) => {
       const q = radar ? quality : 0;
       const series = blend(radar, model, q);
-      const noun = precipNoun(model ? model.tempC : null);
+      const precip = precipInfo(model, obs);
+      const noun = precip.noun;
       const summary = summarize(series, noun, radar && radar.echo === 0);
-      state.result = { loc, radar, model, series, summary, site, quality: q, noun, t0: series.t0 || Date.now() };
+      state.result = { loc, radar, model, obs, precip, series, summary, site, quality: q, noun, t0: series.t0 || Date.now() };
       state.lastRefresh = Date.now();
       render();
       return summary;
     };
     // Radar is usually ready first: show it, then fold in the model when it arrives.
     if (radar) show(null);
-    const model = await modelP;
+    const [model, obs] = await Promise.all([modelP, obsP]);
     if (model && model.timezone) confirmZone(loc.lat, loc.lon, model.timezone);
     if (!radar && !model) throw radarErr || new Error('No forecast data available');
-    if (model) show(model);
+    if (model || obs) show(model, obs);
     maybeAlert(state.result.summary, state.result.noun);
     if (!state.picked) reportLocation(state.gps);
   } catch (e) {
@@ -150,6 +158,148 @@ async function refresh() {
 // ---------- rendering ----------
 
 function setStatus(t) { $('status').textContent = t; }
+
+// ---------- precipitation type, visibility, air quality chips ----------
+
+const MODEL_PHASE_CODES = new Set([56, 57, 66, 67, 71, 73, 75, 77, 85, 86]);
+
+// What is (or would be) falling, and how we know.
+function precipInfo(model, obs) {
+  const tempC = model ? model.tempC : null;
+  const rh = model ? model.current.humidity : null;
+  const code = model ? model.precipCode : null;
+  const noun = precipNoun(tempC, { obs: obs && obs.phase, code, rh });
+  let why = '';
+  if (obs && obs.phase) why = `reported falling at ${obs.station.id} (${obs.station.name}, ${fmtDist(obs.station.km)} away)`;
+  else if (MODEL_PHASE_CODES.has(code)) why = 'from the weather model, which sees the temperature of the air aloft';
+  else if (tempC !== null) {
+    why = `from the temperature (${fmtTemp(tempC)}${Number.isFinite(rh) ? `, wet-bulb ${fmtTemp(wetBulb(tempC, rh))}` : ''})`;
+  }
+  return { noun, why };
+}
+
+// "5 PM" today, "Mon 5 AM" on another day (the place's local time).
+const hourWhen = (t) => (dateOf(t) === dateOf(Date.now()) ? hourOf(t) : dayHourOf(t));
+
+// Visibility in miles (fractions under 1, as on aviation and marine reports) or km.
+function fmtVis(m) {
+  if (metric()) return m >= 16000 ? '16+ km' : m >= 1000 ? `${(m / 1000).toFixed(m < 5000 ? 1 : 0)} km` : `${Math.round(m / 50) * 50} m`;
+  const mi = m / 1609.344;
+  if (mi >= 9.95) return '10+ mi';
+  if (mi >= 1) return `${mi < 3 ? mi.toFixed(1).replace(/\.0$/, '') : Math.round(mi)} mi`;
+  const q = Math.max(0, Math.round(mi * 4));
+  return q === 0 ? 'under ¼ mi' : `${['', '¼', '½', '¾', '1'][q]} mi`;
+}
+// Station reports stop at 10 statute miles (8.7 nm), so that reads as "8.7+ nm".
+const fmtVisNm = (m) => (m >= 16000 ? `${(Math.min(m, 16093) / 1852).toFixed(1)}+ nm` : `${(m / 1852).toFixed(m < 1852 ? 2 : 1)} nm`);
+
+// Visibility now: the station's measured value when there is one, else the model's.
+function visNow(r) {
+  if (r.obs && r.obs.visM !== null) return { m: r.obs.visM, measured: true, cause: r.obs.obscured };
+  if (r.model && Number.isFinite(r.model.current.vis)) return { m: r.model.current.vis, measured: false, cause: null };
+  return null;
+}
+
+// When visibility changes over the next 24 hours (weather model).
+function visOutlook(r, now) {
+  if (!r.model) return '';
+  const hrs = r.model.hours.slice(1).filter((h) => Number.isFinite(h.vis));
+  const c0 = visClass(now.m).cls;
+  if (c0 === 'good') {
+    const low = hrs.find((h) => h.vis < 1600);
+    if (!low) return 'Forecast to stay above 1 mile for the next 24 hours.';
+    const min = Math.min(...hrs.filter((h) => h.time >= low.time && h.time < low.time + 6 * 3600000).map((h) => h.vis));
+    return `Forecast to drop below 1 mile around ${hourWhen(low.time)} (lowest ${fmtVis(min)}).`;
+  }
+  const up = hrs.find((h) => h.vis >= 5000);
+  return up ? `Forecast to improve above 3 miles around ${hourWhen(up.time)}.` : 'Forecast to stay reduced for the next several hours.';
+}
+
+const CHIP_CLASS = { snow: 'snow', 'rain and snow': 'mix', sleet: 'ice', 'freezing rain': 'ice' };
+
+function renderChips() {
+  const r = state.result;
+  if (!r) return;
+  const chips = [];
+  const s = r.summary;
+  const precipSoon = s && (s.raining || s.start !== null || s.maybe !== undefined);
+  if (r.noun !== 'rain' || precipSoon) {
+    chips.push(`<span class="chip ${CHIP_CLASS[r.noun] || ''}" title="Precipitation type ${esc(r.precip.why)}">${PRECIP_ICON[r.noun]} ${cap(r.noun)}</span>`);
+  }
+  const v = visNow(r);
+  if (v) {
+    const c = visClass(v.m);
+    const cause = v.cause && c.cls !== 'good' ? ` · ${v.cause}` : '';
+    chips.push(`<span class="chip ${c.cls}" title="Visibility${v.measured ? ' (measured)' : ' (forecast)'}">👁 ${fmtVis(v.m)}${cause}</span>`);
+  }
+  const aq = state.aq && state.aq.key === aqKey(r.loc) && state.aq.data;
+  if (aq) {
+    const cat = AQI_CATS[aqiCat(aq.current.aqi)];
+    chips.push(`<a class="chip" href="#aqCard" style="background:${cat.color};color:${cat.ink};border-color:${cat.color}">AQI ${aq.current.aqi} <small>${esc(cat.short || cat.name)}</small></a>`);
+  }
+  $('chips').innerHTML = chips.join('');
+}
+
+// ---------- air quality card ----------
+
+const AQ_REFRESH_MS = 30 * 60000;
+const aqKey = (loc) => (loc ? `${loc.lat.toFixed(2)},${loc.lon.toFixed(2)}` : '');
+
+async function loadAirQuality(loc) {
+  const a = state.aq;
+  if (a && a.key === aqKey(loc) && (a.pending || Date.now() - a.time < AQ_REFRESH_MS)) return;
+  const entry = { key: aqKey(loc), time: Date.now(), pending: true, data: a && a.key === aqKey(loc) ? a.data : null };
+  state.aq = entry;
+  try {
+    entry.data = await airQuality(loc.lat, loc.lon, { us: inDomain(loc.lat, loc.lon) });
+    entry.error = null;
+  } catch (e) {
+    entry.error = e.message;
+  }
+  entry.pending = false;
+  if (state.aq === entry) { renderAq(); renderChips(); }
+}
+
+function renderAq() {
+  const a = state.aq, card = $('aqCard');
+  const loc = state.picked || state.gps;
+  if (!a || a.key !== aqKey(loc) || (!a.data && !a.error)) return;
+  card.hidden = false;
+  if (!a.data) {
+    $('aqHead').textContent = '';
+    $('aqAdvice').textContent = '';
+    $('aqStrip').innerHTML = $('aqTimes').innerHTML = '';
+    $('aqMeta').textContent = `Air quality unavailable: ${a.error}`;
+    return;
+  }
+  const { current: c, series, outlook: o } = a.data;
+  const cat = AQI_CATS[aqiCat(c.aqi)];
+  let next = '';
+  if (o && o.kind === 'worse') {
+    next = `Getting worse: ${AQI_CATS[o.cat].name} from around ${hourWhen(o.time)} (AQI up to ${o.peak.aqi} at ${hourWhen(o.peak.time)}, mainly ${POLLUTANTS[o.peak.pollutant]}).`;
+  } else if (o && o.kind === 'better') {
+    next = `Improving to ${AQI_CATS[o.cat].name} around ${hourWhen(o.time)}.`;
+  } else if (o) {
+    next = `${cat.name} for the next 24 hours.`;
+  }
+  $('aqHead').innerHTML = `<span class="aq-badge" style="background:${cat.color};color:${cat.ink}">${c.aqi}</span><b>${cat.name}</b>, mainly ${esc(POLLUTANTS[c.pollutant])}` +
+    (next ? `<span class="next">${esc(next)}</span>` : '');
+  const worst = o && o.kind === 'worse' ? AQI_CATS[o.cat] : cat;
+  $('aqAdvice').textContent = worst === cat ? cat.advice : `Later: ${worst.advice}`;
+
+  const hrs = series.slice(0, 24);
+  const top = Math.max(100, ...hrs.map((h) => h.aqi));
+  $('aqStrip').innerHTML = hrs.map((h) => {
+    const k = AQI_CATS[aqiCat(h.aqi)];
+    return `<span style="height:${Math.max(4, h.aqi / top * 100)}%;background:${k.color}" title="${hourOf(h.time)}: AQI ${h.aqi} ${k.name}"></span>`;
+  }).join('');
+  $('aqStrip').setAttribute('aria-label', `Air quality index for the next 24 hours, from ${Math.min(...hrs.map((h) => h.aqi))} to ${Math.max(...hrs.map((h) => h.aqi))}`);
+  $('aqTimes').innerHTML = hrs.map((h, i) => (i % 6 ? '' : `<span style="left:${(i / hrs.length) * 100}%">${i === 0 ? 'Now' : hourOf(h.time)}</span>`)).join('');
+
+  $('aqMeta').textContent = c.measured
+    ? `Measured ${hourOf(c.time)} at ${c.site} (${c.agency}), ${fmtDist(c.km)} away, via EPA AirNow. Next 24 hours: CAMS forecast (Open-Meteo), adjusted to match the measured reading.`
+    : `${inDomain(loc.lat, loc.lon) ? `No EPA monitor within ${fmtDist(50)}` : 'Outside the U.S. (no EPA monitors)'}: these are the CAMS model forecast (Open-Meteo), which can be off by a category.`;
+}
 
 function showSettings(open) {
   $('settings').hidden = !open;
@@ -190,6 +340,19 @@ function render() {
     lines.push(['Timing', 'Start and stop times are a likely range (the shaded bands on the chart). Rain timing from radar is usually right to within about 10 minutes; showers that pop up where none were on radar cannot be forecast.']);
   }
   lines.push(['Right now', now.prob >= P_ON ? `${cap(intensityWord(now.intensity))} ${r.noun}, ${fmtRate(now.intensity)}` : `No ${r.noun}`]);
+  const precipSoon = r.summary.raining || r.summary.start !== null || r.summary.maybe !== undefined;
+  if (r.precip.why && (r.noun !== 'rain' || precipSoon)) {
+    lines.push(['Precipitation type', `${PRECIP_ICON[r.noun]} ${cap(r.noun)}, ${esc(r.precip.why)}. Radar alone cannot tell rain from snow.`]);
+  }
+  const vis = visNow(r);
+  if (vis) {
+    const c = visClass(vis.m);
+    const where = vis.measured
+      ? `measured at ${r.obs.station.id} (${esc(r.obs.station.name)}, ${fmtDist(r.obs.station.km)} away) at ${fmtTime(new Date(r.obs.time))}`
+      : 'weather model estimate (no station report)';
+    const nm = metric() ? '' : `, ${fmtVisNm(vis.m)}`;
+    lines.push(['Visibility', `${fmtVis(vis.m)}${nm}: ${c.word.toLowerCase()}${vis.cause ? ` (${vis.cause})` : ''}, ${where}. ${visOutlook(r, vis)}`]);
+  }
   if (r.radar) {
     const { vel, mf, grid } = r.radar;
     if (mf.count) {
@@ -224,7 +387,9 @@ function render() {
   if (r.radar && r.radar.doppler) showDopplerDetail(r);
   setStatus('');
 
-  drawChart(r.series, r.noun);
+  renderChips();
+  renderAq();
+  drawChart(r.series);
   renderOutlook(r.model);
   loadSurgeRisk(r);
   if (r.second) renderSecondOpinion(r); else loadSecondOpinion(r);
@@ -278,8 +443,22 @@ function renderOutlook(model) {
   }).join('');
 }
 
-// Rain intensity colours (light, moderate, heavy), the same as the radar map's and the legend's.
-const CHANCE_COLORS = { 'very light': '#78a8ff', light: '#78a8ff', moderate: '#2f62e6', heavy: '#facd28' };
+// Intensity colours (light, moderate, heavy) for each kind of precipitation. Rain uses the
+// radar map's colours; snow is white to lavender, a rain-snow mix purple, ice pink.
+const RAIN_SET = { 'very light': '#78a8ff', light: '#78a8ff', moderate: '#2f62e6', heavy: '#facd28' };
+const SNOW_SET = { 'very light': '#e9eeff', light: '#e9eeff', moderate: '#a9b6ff', heavy: '#7b61ff' };
+const MIX_SET = { 'very light': '#c9c1ff', light: '#c9c1ff', moderate: '#9a7cf0', heavy: '#c04ee8' };
+const ICE_SET = { 'very light': '#ffb3d9', light: '#ffb3d9', moderate: '#ff6fb5', heavy: '#e0218a' };
+const CHANCE_SETS = { rain: RAIN_SET, snow: SNOW_SET, 'rain and snow': MIX_SET, sleet: ICE_SET, 'freezing rain': ICE_SET };
+
+function renderLegend(noun) {
+  const set = CHANCE_SETS[noun] || RAIN_SET;
+  $('legend').innerHTML = `Chance of ${esc(noun)} each minute:
+    <span class="sw" style="background:${set.light}"></span>light
+    <span class="sw" style="background:${set.moderate}"></span>moderate
+    <span class="sw" style="background:${set.heavy}"></span>heavy
+    <span class="sw band"></span>likely start / end`;
+}
 
 // The next 60 minutes as the chance of rain at each minute (0-100%), coloured by how hard it
 // would rain, with clock times along the bottom. The 50% line is where the headline puts the
@@ -301,6 +480,10 @@ function drawChart(series) {
   const accent = css.getPropertyValue('--accent').trim();
   const X = (m) => left + pw * m / 60, Y = (p) => top + ph * (1 - p);
   const t0 = (r && r.t0) || Date.now();
+  const noun = (r && r.noun) || 'rain';
+  const colors = CHANCE_SETS[noun] || RAIN_SET;
+  renderLegend(noun);
+  cv.setAttribute('aria-label', `Chance of ${noun} each minute for the next 60 minutes`);
   ctx.font = '11px -apple-system, system-ui, sans-serif';
 
   // Grid: 0 / 50 / 100 %.
@@ -318,13 +501,13 @@ function drawChart(series) {
   series.forEach((p, i) => {
     if (i === 60 || p.prob < 0.05) return;
     const pr = (p.prob + series[i + 1].prob) / 2;
-    ctx.fillStyle = CHANCE_COLORS[intensityWord(p.intensity)];
+    ctx.fillStyle = colors[intensityWord(p.intensity)];
     ctx.globalAlpha = pr >= P_ON ? 0.95 : 0.55;
     ctx.fillRect(Math.round(X(i)), Y(pr), Math.round(X(i + 1)) - Math.round(X(i)), top + ph - Y(pr));
   });
   ctx.globalAlpha = 1;
-  // Outline of the chance.
-  ctx.strokeStyle = '#eaf1fb'; ctx.lineWidth = 1.25;
+  // Outline of the chance (blue over white snow, so it still shows).
+  ctx.strokeStyle = colors === RAIN_SET ? '#eaf1fb' : '#5b6ee8'; ctx.lineWidth = 1.25;
   ctx.beginPath();
   series.forEach((p, i) => (i ? ctx.lineTo(X(i), Y(p.prob)) : ctx.moveTo(X(i), Y(p.prob))));
   ctx.stroke();

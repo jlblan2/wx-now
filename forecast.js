@@ -22,12 +22,33 @@ export function intensityWord(mm) {
   return 'heavy';
 }
 
-export function precipNoun(tempC) {
+// Wet-bulb temperature (°C) from air temperature and relative humidity (Stull 2011). Falling
+// snow melts according to the wet-bulb, not the air temperature: in dry air snow reaches the
+// ground at 2-3 °C.
+export function wetBulb(t, rh) {
+  return t * Math.atan(0.151977 * Math.sqrt(rh + 8.313659)) + Math.atan(t + rh) - Math.atan(rh - 1.676331) +
+    0.00391838 * rh ** 1.5 * Math.atan(0.023101 * rh) - 4.686035;
+}
+
+const MODEL_SNOW = new Set([71, 73, 75, 77, 85, 86]), MODEL_ICE = new Set([56, 57, 66, 67]);
+
+// What will fall: 'rain', 'snow', 'rain and snow', 'sleet' or 'freezing rain'.
+//   obs:  what the nearest station reports falling now (measured, so it wins);
+//   code: the weather model's code for the coming precipitation (it sees the air aloft);
+//   rh:   humidity, for the wet-bulb when neither says.
+export function precipNoun(tempC, { obs = null, code = null, rh = null } = {}) {
+  if (obs) return obs;
+  if (MODEL_ICE.has(code)) return 'freezing rain';
+  if (MODEL_SNOW.has(code)) return tempC !== null && tempC > 3 ? 'rain and snow' : 'snow';
   if (tempC === null || tempC === undefined) return 'rain';
-  if (tempC <= 0.5) return 'snow';
-  if (tempC <= 2.5) return 'rain and snow';
+  const t = Number.isFinite(rh) ? wetBulb(tempC, rh) : tempC;
+  if (t <= 0.5) return 'snow';
+  if (t <= 1.5 || tempC <= 2.5) return tempC <= 4 ? 'rain and snow' : 'rain';
   return 'rain';
 }
+
+// One word and icon for the precipitation type indicator.
+export const PRECIP_ICON = { rain: '💧', snow: '❄️', 'rain and snow': '🌨️', sleet: '🧊', 'freezing rain': '🧊' };
 
 export const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -161,7 +182,8 @@ export function headline(s, noun, t0, timeOf) {
     const end = s.stop ? `, ending ${timeRange(t0, s.stopWin, timeOf)}` : '';
     return `${Word} ${noun} starting in about ${s.start} min${when(`likely ${timeRange(t0, s.startWin, timeOf)}${end}`)}`;
   }
-  if (s.maybe) return `Possible ${noun} in about ${s.maybe} min${when(`${timeOf(t0 + s.maybe * 60000)}, ${s.chance}% chance`)}`;
+  if (s.maybe === 0) return `Possible ${noun} now${when(`${s.chance}% chance`)}`;
+  if (s.maybe > 0) return `Possible ${noun} in about ${s.maybe} min${when(`${timeOf(t0 + s.maybe * 60000)}, ${s.chance}% chance`)}`;
   return esc(s.text);
 }
 
@@ -184,10 +206,12 @@ export function summarize(series, noun, radarClear) {
       startWin: changeWindow(series, start, true), stop: end, stopWin: end ? changeWindow(series, end, false) : null,
     };
   }
+  // A lower chance (25-50%), possibly already now (minute 0).
   const maybe = series.findIndex((s) => s.prob >= P_MAYBE);
-  if (maybe > 0) {
-    const pk = Math.max(...series.map((s) => s.prob));
-    return { text: `Possible ${noun} in about ${maybe} min (${Math.round(pk * 100)}% chance)`, start: null, raining: false, maybe, chance: Math.round(pk * 100) };
+  if (maybe >= 0) {
+    const pk = Math.round(Math.max(...series.map((s) => s.prob)) * 100);
+    const text = maybe === 0 ? `Possible ${noun} now (${pk}% chance)` : `Possible ${noun} in about ${maybe} min (${pk}% chance)`;
+    return { text, start: null, raining: false, maybe, chance: pk };
   }
   return {
     text: radarClear ? `No ${noun} for the hour — radar is clear for 100 miles` : `No ${noun} for the hour`,
