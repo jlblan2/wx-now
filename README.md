@@ -2,7 +2,7 @@
 
 Minute-by-minute rain forecast for the next hour, built the way the original Dark Sky did it:
 track storms on live radar and project them forward to your exact location. Installable on
-iPhone as a home-screen web app; see [How to add Wx Now to iPhone](How%20to%20add%20Wx%20Now%20to%20iPhone.txt).
+iPhone and Android as a home-screen web app; see [How to add Wx Now to a Cellphone](How%20to%20add%20Wx%20Now%20to%20a%20Cellphone.txt).
 
 ## How it works
 
