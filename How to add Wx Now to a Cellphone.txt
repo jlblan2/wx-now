@@ -1,21 +1,31 @@
-HOW TO ADD WX NOW TO AN iPHONE
-================================
+HOW TO ADD WX NOW TO A CELLPHONE (iPHONE OR ANDROID)
+=====================================================
 
-Wx Now is a web app. It isn't in the App Store. You add it to the Home Screen from
-Safari, and after that it opens and works like a normal app.
+Wx Now is a web app. It isn't in the App Store or Google Play. You add it to the
+Home Screen from the phone's web browser, and after that it opens and works like a
+normal app.
 
 App address:  https://jlblan2.github.io/wx-now/
 
+Parts 1 and 2 are different for iPhone and Android: follow the ones for your phone.
+Parts 3 and 4 are the same on both.
+
 What you need
 -------------
-- An iPhone with iOS 16.4 or later (needed for rain alerts when the app is closed).
+iPhone:
+- iOS 16.4 or later (needed for rain alerts when the app is closed).
   Check under Settings > General > About > iOS Version.
 - Safari. Other browsers on iPhone (Chrome, Firefox, etc.) can't add the app with
   alerts working, so use Safari for this setup.
+Android:
+- Android 8 or later with the Google Chrome browser kept up to date in the Play
+  Store. (Samsung Internet also works; the menu names are a little different.)
+- Location turned on: swipe down from the top of the screen and check that the
+  Location tile is on.
 
 
-PART 1 - ADD THE APP TO THE HOME SCREEN
----------------------------------------
+PART 1 (iPHONE) - ADD THE APP TO THE HOME SCREEN
+------------------------------------------------
 1. Open Safari and go to:  https://jlblan2.github.io/wx-now/
 2. When it asks to use your location, tap "Allow". The forecast is for where you
    are.
@@ -30,12 +40,45 @@ From now on, ALWAYS open the app from this icon, not from Safari. Rain alerts on
 work when the app is opened from the Home Screen icon.
 
 
-PART 2 - ALLOW LOCATION
------------------------
+PART 2 (iPHONE) - ALLOW LOCATION
+--------------------------------
 1. Open Wx Now from the Home Screen icon.
 2. When it asks to use your location, tap "Allow While Using App".
    If you said no by mistake: Settings > Privacy & Security > Location Services >
    Safari Websites > set to "While Using the App", then reopen Wx Now.
+
+Now go to Part 3.
+
+
+PART 1 (ANDROID) - ADD THE APP TO THE HOME SCREEN
+-------------------------------------------------
+1. Open Chrome and go to:  https://jlblan2.github.io/wx-now/
+2. When it asks to use your location, tap "Allow" (or "While using the site").
+3. Tap the three-dot menu at the top right of Chrome.
+4. Tap "Add to Home screen", then "Install". (On some phones the menu item is
+   called "Install app"; Chrome may also show an "Install" banner at the bottom of
+   the page, which does the same thing.)
+   Samsung Internet: tap the menu (three lines at the bottom right) > "Add page to" >
+   "Home screen".
+5. Leave the name as "Wx Now" and tap "Install" or "Add". If the phone asks where to
+   put it, tap "Add to Home screen" or drag the icon where you want it.
+6. A Wx Now icon (a blue raindrop on radar rings) appears on your Home Screen and in
+   the app drawer.
+
+From now on, open the app from this icon. It opens full screen like a normal app,
+without Chrome's address bar.
+
+
+PART 2 (ANDROID) - ALLOW LOCATION
+---------------------------------
+1. Open Wx Now from the Home Screen icon.
+2. When it asks to use your location, tap "While using the app" (or "Allow").
+   Choose "Precise" if the phone offers "Precise" or "Approximate": the rain
+   forecast is for your exact spot.
+   If you said no by mistake: open Chrome, go to the app address, tap the icon to the
+   left of the address (a lock or two sliders) > Permissions (or Site settings) >
+   Location > Allow. Also check phone Settings > Apps > Chrome > Permissions >
+   Location is set to "Allow only while using the app". Then reopen Wx Now.
 
 
 PART 3 - TURN ON RAIN ALERTS (works even when the app is closed)
@@ -43,7 +86,7 @@ PART 3 - TURN ON RAIN ALERTS (works even when the app is closed)
 1. Open Wx Now from the Home Screen icon.
 2. Tap the gear icon at the top right to open Settings.
 3. Under "Alerts when the app is closed", tap "Turn on".
-4. When iPhone asks to allow notifications, tap "Allow".
+4. When the phone asks to allow notifications, tap "Allow".
 5. The label next to the heading changes to "On".
 6. Tap "Send test alert". A notification should arrive within a few seconds.
 
@@ -366,11 +409,17 @@ TROUBLESHOOTING
     https://129-80-206-181.sslip.io  in "Alert server address", then tap "Turn on".
 
 "Notifications are blocked":
-    iPhone Settings > Notifications > Wx Now > turn on "Allow Notifications".
+    iPhone: Settings > Notifications > Wx Now > turn on "Allow Notifications".
+    Android: Settings > Notifications > App notifications (or Settings > Apps) >
+    Wx Now (or Chrome, on some phones) > turn notifications on.
     Then turn alerts off and on again in the app.
 
-"Open the app from its Home Screen icon":
+"Open the app from its Home Screen icon" (iPhone):
     You opened it in Safari. Close Safari and open the Wx Now icon instead.
+
+No "Add to Home screen" or "Install" in Chrome's menu (Android):
+    Update Chrome in the Play Store, reload the page, wait a few seconds for it to
+    finish loading and look again. It is missing in Incognito tabs.
 
 The app looks out of date after an update:
     Swipe it away to close it fully and reopen it. If that doesn't work, wait 10
@@ -381,8 +430,12 @@ No alerts arriving:
     work, and there has simply been no rain heading your way. If it doesn't arrive,
     check that Focus / Do Not Disturb is off and notifications are allowed for
     Wx Now.
+    Android: if the test arrives but real alerts come late or not at all, the phone's
+    battery saver may be holding them back. Settings > Apps > Chrome > Battery > set
+    to "Unrestricted" (Samsung: also take Chrome off "Sleeping apps" under Battery >
+    Background usage limits).
 
-Setting up on a new or second iPhone:
+Setting up on a new or second phone:
     Repeat Parts 1 to 4 on that phone. Saved places are stored on each phone
     separately.
 
