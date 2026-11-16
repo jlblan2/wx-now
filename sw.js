@@ -1,6 +1,6 @@
 // App shell: network first so updates show up straight away, cache as the offline fallback.
 // Radar, model and map-tile requests always go to the network.
-const CACHE = 'wxnow-v29';
+const CACHE = 'wxnow-v30';
 const ASSETS = [
   './',
   './index.html',
@@ -46,7 +46,8 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      // Only this app's old caches: the other apps on this site keep theirs in the same store.
+      Promise.all(keys.filter((k) => k.startsWith('wxnow-') && k !== CACHE).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
