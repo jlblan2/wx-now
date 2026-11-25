@@ -160,6 +160,7 @@ main {
 .row input { flex: 1; min-width: 0; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 15px; }
 .btn { background: var(--accent); color: #111; border: none; border-radius: 8px; padding: 8px 14px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+a.btn { display: inline-block; text-decoration: none; }
 .msg { min-height: 0; }
 .msg.bad { color: #ff8a80; }
 .places { list-style: none; margin: 0; padding: 0; font-size: 14px; }

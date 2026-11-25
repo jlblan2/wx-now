@@ -86,6 +86,8 @@ advice and a guide to what each of these does to the body. The tab also holds:
 | `push.js` | Closed-app alert settings and push subscription |
 | `config.js` | Alert server address |
 | `server/` | Alert server (Node.js): runs the same forecast every 5 minutes and sends Web Push |
+| `Wx Now Users Manual.pdf` (.docx, .doc) | User's manual, linked from Settings and cached by `sw.js` for offline use. Rebuild: `python tools/shoot.py` (screenshots, with the app served on port 8430), then `python tools/make_guide.py` (needs python-docx; LibreOffice makes the .doc and .pdf) |
+| `tools/` | `shoot.py` photographs the manual's screens at phone size in headless Edge; `make_guide.py` writes the manual |
 | `tests.html` | Engine tests on synthetic storms; open in a browser |
 
 Testing a location: `index.html?lat=39.0&lon=-97.0`.
