@@ -1,6 +1,6 @@
 // App shell: network first so updates show up straight away, cache as the offline fallback.
 // Radar, model and map-tile requests always go to the network.
-const CACHE = 'wxnow-v30';
+const CACHE = 'wxnow-v33';
 const ASSETS = [
   './',
   './index.html',
@@ -23,6 +23,7 @@ const ASSETS = [
   './history.js',
   './obs.js',
   './airquality.js',
+  './people.js',
   './passage.js',
   './config.js',
   './nowcast.js',

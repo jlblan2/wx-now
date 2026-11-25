@@ -8,6 +8,7 @@ import { SURGE_CLASSES, riskExport, liveExport, surgeRiskAt, riskSummary } from 
 import { tropicalOutlook, RISK_COLORS } from './outlook.js';
 import { zonesByDistance, zoneFor, marineForecast, zoneGeometry } from './marine.js';
 import { fetchModel, describe } from './model.js';
+import { initPeople, renderPeople, loadPeopleExtras, rerenderPeopleExtras } from './people.js';
 import { useZoneFor, confirmZone, timeOf, hourOf, dayOf, dateOf, dayHourOf, whenOf, zoneName, differsFromPhone } from './clock.js';
 import {
   P_ON, intensityWord, precipNoun, wetBulb, PRECIP_ICON, cap, radarCoverage, runRadar, blend, summarize, headline } from './forecast.js';
@@ -121,6 +122,7 @@ async function refresh() {
       ? Promise.race([latestObs(loc.lat, loc.lon).catch(() => null), new Promise((r) => setTimeout(() => r(null), 8000))])
       : Promise.resolve(null);
     loadAirQuality(loc);
+    loadPeopleExtras(loc);
     let radar = null, radarErr = null;
     if (quality > 0) {
       try {
@@ -235,7 +237,7 @@ function renderChips() {
   const aq = state.aq && state.aq.key === aqKey(r.loc) && state.aq.data;
   if (aq) {
     const cat = AQI_CATS[aqiCat(aq.current.aqi)];
-    chips.push(`<a class="chip" href="#aqCard" style="background:${cat.color};color:${cat.ink};border-color:${cat.color}">AQI ${aq.current.aqi} <small>${esc(cat.short || cat.name)}</small></a>`);
+    chips.push(`<a class="chip" href="#aqCard" data-goto="people" title="Air quality: details in Effects on people" style="background:${cat.color};color:${cat.ink};border-color:${cat.color}">AQI ${aq.current.aqi} <small>${esc(cat.short || cat.name)}</small></a>`);
   }
   $('chips').innerHTML = chips.join('');
 }
@@ -391,6 +393,7 @@ function render() {
   renderAq();
   drawChart(r.series);
   renderOutlook(r.model);
+  renderPeople(r.model);
   loadSurgeRisk(r);
   if (r.second) renderSecondOpinion(r); else loadSecondOpinion(r);
   if (r.history) renderHistory(r); else loadHistory(r);
@@ -1507,7 +1510,7 @@ function initScrollRail() {
     const top = $('topbar').getBoundingClientRect().bottom + 4;
     const h = window.innerHeight - top - 8;
     const doc = document.documentElement.scrollHeight, view = window.innerHeight;
-    const th = Math.max(40, h * view / doc);
+    const th = Math.max(64, h * view / doc);   // tall enough to grab
     return { top, h, doc, view, th, max: doc - view };
   };
   const update = () => {
@@ -1591,7 +1594,7 @@ async function loadClarity(at) {
 
 // ---------- tabs ----------
 
-const TAB_PANES = { local: ['tabLocal'], storms: ['tabStorms', 'surge'], seas: ['tabSeas'] };
+const TAB_PANES = { local: ['tabLocal'], people: [], storms: ['tabStorms', 'surge'], seas: ['tabSeas'] };
 const tabViews = {};   // map centre/zoom remembered per tab
 
 function defaultView(tab) {
@@ -1617,7 +1620,9 @@ function setTab(tab, { remember = true } = {}) {
     if (el.dataset.tab !== tab) { el.dataset.tabHidden = '1'; el.style.display = 'none'; } else { delete el.dataset.tabHidden; el.style.display = ''; }
   });
   const card = $('mapCard');
-  document.querySelector(`.map-slot[data-slot="${tab}"]`).appendChild(card);
+  const slot = document.querySelector(`.map-slot[data-slot="${tab}"]`);
+  card.hidden = !slot;   // Effects on people has no map
+  if (slot) slot.appendChild(card);
   card.dataset.tabMap = tab;
   if (map) {
     for (const [t, panes] of Object.entries(TAB_PANES)) {
@@ -1732,6 +1737,14 @@ function bindUi() {
     const b = e.target.closest('button[data-storm]');
     if (b) showStormOnMap(+b.dataset.storm);
   });
+  // The AQI chip on Local weather opens the air quality card, which lives in Effects on people.
+  $('chips').addEventListener('click', (e) => {
+    const a = e.target.closest('[data-goto]');
+    if (!a) return;
+    e.preventDefault();
+    setTab(a.dataset.goto);
+    $('aqCard').scrollIntoView({ block: 'start' });
+  });
   $('tabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-tab]');
     if (b) setTab(b.dataset.tab);
@@ -1762,7 +1775,7 @@ function bindUi() {
   };
   $('s2Id').addEventListener('change', saveCreds);
   $('s2Secret').addEventListener('change', saveCreds);
-  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); passageUnitsChanged(); syncWaterTemp(); if (state.tab === 'seas') { loadTides(); loadWaterTemp(); loadClarity(); } });
+  $('units').addEventListener('change', (e) => { state.units = e.target.value; store.set('units', state.units); render(); rerenderPeopleExtras(); passageUnitsChanged(); syncWaterTemp(); if (state.tab === 'seas') { loadTides(); loadWaterTemp(); loadClarity(); } });
   $('alerts').checked = state.alerts;
   $('alerts').addEventListener('change', (e) => setAlerts(e.target.checked));
   window.addEventListener('resize', () => state.result && drawChart(state.result.series));
@@ -1785,6 +1798,7 @@ async function main() {
   if (store.get('navyWaves', '')) setWaves(true);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   initScrollRail();
+  initPeople({ metric, esc, fmtTemp, fmtSpeed, dayOf, describe });
   const fromUrl = urlLocation();
   const active = savedPlaces().find((p) => p.name === store.get('activePlace', null));
   if (fromUrl) state.picked = fromUrl;

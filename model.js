@@ -14,9 +14,11 @@ export async function fetchModel(lat, lon) {
     minutely_15: 'precipitation',
     forecast_minutely_15: '6', past_minutely_15: '1',
     hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,is_day,' +
-      'wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility',
+      'wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility,' +
+      'relative_humidity_2m,apparent_temperature,uv_index,cloud_cover,shortwave_radiation,dew_point_2m,cape',
     daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,' +
-      'precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant',
+      'precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,' +
+      'uv_index_max,sunshine_duration,daylight_duration',
     forecast_days: '7',
     timeformat: 'unixtime', timezone: 'auto',
   });
@@ -28,7 +30,7 @@ export async function fetchModel(lat, lon) {
     const j = await resp.json();
     const m = j.minutely_15 || {}, h = j.hourly || {}, d = j.daily || {}, c = j.current || {};
     const now = Date.now();
-    const hours = (h.time || []).map((t, i) => ({
+    const all = (h.time || []).map((t, i) => ({
       time: t * 1000,
       temp: h.temperature_2m[i],
       pop: h.precipitation_probability ? h.precipitation_probability[i] : null,
@@ -39,7 +41,19 @@ export async function fetchModel(lat, lon) {
       windDir: h.wind_direction_10m[i],
       gust: h.wind_gusts_10m[i],
       vis: h.visibility ? h.visibility[i] : null,
-    })).filter((x) => x.time > now - 3600000).slice(0, 25);
+    }));
+    // All 7 days of hours, with what the Effects on people tab needs (heat, cold, sun, storms).
+    const week = all.map((x, i) => ({
+      ...x,
+      rh: h.relative_humidity_2m ? h.relative_humidity_2m[i] : null,
+      feels: h.apparent_temperature ? h.apparent_temperature[i] : null,
+      uv: h.uv_index ? h.uv_index[i] : null,
+      cloud: h.cloud_cover ? h.cloud_cover[i] : null,
+      sun: h.shortwave_radiation ? h.shortwave_radiation[i] : null,
+      dew: h.dew_point_2m ? h.dew_point_2m[i] : null,
+      cape: h.cape ? h.cape[i] : null,
+    }));
+    const hours = all.filter((x) => x.time > now - 3600000).slice(0, 25);
     const days = (d.time || []).map((t, i) => ({
       time: t * 1000,
       code: d.weather_code[i],
@@ -50,6 +64,9 @@ export async function fetchModel(lat, lon) {
       wind: d.wind_speed_10m_max[i],
       gust: d.wind_gusts_10m_max[i],
       windDir: d.wind_direction_10m_dominant[i],
+      uvMax: d.uv_index_max ? d.uv_index_max[i] : null,
+      sunHours: d.sunshine_duration ? d.sunshine_duration[i] / 3600 : null,
+      dayHours: d.daylight_duration ? d.daylight_duration[i] / 3600 : null,
     }));
     return {
       timezone: j.timezone,
@@ -66,6 +83,7 @@ export async function fetchModel(lat, lon) {
       // Each value is the total for the 15 minutes ending at that time.
       steps: (m.time || []).map((t, i) => ({ end: t * 1000, rate: (m.precipitation[i] || 0) * 4 })),
       hours,
+      week,
       days,
     };
   } finally {

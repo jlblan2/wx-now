@@ -42,6 +42,23 @@ Outside the U.S. it is the model alone.
 The same Open-Meteo request also supplies the 24-hour and 7-day forecasts (temperature,
 chance of precipitation, wind and gusts).
 
+**Effects on people** (`people.js`, its own tab) uses that same request (plus hourly humidity,
+dew point, UV, cloud cover, sunshine and CAPE) to say what each of the 7 days will do to a person
+outdoors: feels-like (NWS heat index / wind chill), a heat-stress WBGT estimate for someone in the
+sun, frostbite time for exposed skin (Environment Canada), UV index and sunburn time, dew point
+comfort, lightning risk (the model's thunderstorm codes, chance of rain and CAPE), how the night
+will be for sleeping (8 pm to 7 am), dehydration risk, sunshine, cloud and wind, with plain-language
+advice and a guide to what each of these does to the body. The tab also holds:
+- the **Air quality** card (moved here from Local weather; the AQI chip under the Local headline
+  jumps to it);
+- **Pollen**, 4 days, from Open-Meteo's CAMS pollen forecast (alder, birch, olive, grass, mugwort,
+  ragweed, rated on the U.S. National Allergy Bureau scale). It covers Europe only; elsewhere
+  (including the U.S.) the card shows a short note that pollen isn't available there. No paid or
+  keyed pollen source is used;
+- **Cold water: if you fall in**, the Open-Meteo marine sea surface temperature at the spot for
+  7 days with the U.S. Coast Guard's exhaustion and survival times, and cold-shock / 1-10-1 advice
+  below 60 °F. Inland or off the ocean model it says so.
+
 ## Files
 
 | File | Purpose |
@@ -61,6 +78,7 @@ chance of precipitation, wind and gusts).
 | `tides.js`, `tidestations.js` | NOAA CO-OPS tide predictions (2,301 Atlantic-side stations) and measured water levels from the nearest of 220 gauges, loaded only in Seas & swell |
 | `model.js` | Open-Meteo: model backup, hourly and 7-day forecasts, visibility |
 | `obs.js` | Nearest airport station now: visibility, what is falling, fog/haze/smoke |
+| `people.js` | Effects on people tab: heat index, wind chill, WBGT estimate, frostbite and sunburn times, dew point, lightning, night comfort, daily risk and advice; pollen (Open-Meteo CAMS, Europe) and cold-water survival (Open-Meteo marine SST) |
 | `airquality.js` | Air quality card: EPA AirNow monitors + CAMS forecast, AQI categories and advice |
 | `app.js` | UI: summary, chart, hourly and 7-day, radar map, alerts |
 | `data.js` | N0Q colour palette and NEXRAD site list (generated) |

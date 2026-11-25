@@ -158,6 +158,7 @@
   <div id="topbar" class="topbar">
     <nav id="tabs" class="tabs" aria-label="Sections">
       <button data-tab="local">Local weather</button>
+      <button data-tab="people">Effects on people</button>
       <button data-tab="storms">Hurricanes</button>
       <button data-tab="seas">Seas &amp; swell</button>
     </nav>
@@ -185,15 +186,6 @@
     <div id="hourly" class="hourly"></div>
   </section>
 
-  <section data-tab="local" id="aqCard" class="card aq" hidden>
-    <h2>Air quality</h2>
-    <p id="aqHead" class="aq-head"></p>
-    <p id="aqAdvice" class="aq-advice"></p>
-    <div id="aqStrip" class="aq-strip" role="img"></div>
-    <div id="aqTimes" class="aq-times"></div>
-    <p id="aqMeta" class="note"></p>
-  </section>
-
   <section data-tab="local" id="dailyCard" class="card" hidden>
     <h2>7 days</h2>
     <div id="daily" class="daily"></div>
@@ -210,6 +202,104 @@
 
   <section data-tab="local" class="card">
     <dl id="details" class="details"></dl>
+  </section>
+
+  <section data-tab="people" id="fxCard" class="card fx">
+    <h2>Effects on people · 7 days</h2>
+    <p id="fxNow" class="fx-now"></p>
+    <div id="fxDays" class="fx-days"><p class="note">Loading…</p></div>
+    <p class="note">Worked out from the same forecast as Local weather (Open-Meteo). Feels like is the NWS heat index
+      or wind chill, in the shade. Heat stress (WBGT) is an estimate for a person in the open, in the sun by day;
+      it is what the military and sports bodies use to limit work. Frostbite times are for exposed skin (Environment
+      Canada). Sunburn times are for unprotected skin at the day's peak UV. Tap a day for details.</p>
+  </section>
+
+  <section data-tab="people" id="aqCard" class="card aq" hidden>
+    <h2>Air quality</h2>
+    <p id="aqHead" class="aq-head"></p>
+    <p id="aqAdvice" class="aq-advice"></p>
+    <div id="aqStrip" class="aq-strip" role="img"></div>
+    <div id="aqTimes" class="aq-times"></div>
+    <p id="aqMeta" class="note"></p>
+  </section>
+
+  <section data-tab="people" id="pollenCard" class="card">
+    <h2>Pollen · 4 days</h2>
+    <div id="pollenBody"><p class="note">Loading…</p></div>
+  </section>
+
+  <section data-tab="people" id="waterCard" class="card">
+    <h2>Cold water: if you fall in</h2>
+    <div id="waterBody"><p class="note">Loading…</p></div>
+  </section>
+
+  <section data-tab="people" id="fxGuide" class="card fx-guide">
+    <h2>What the weather does to you</h2>
+    <details><summary>Cold</summary>
+      <p>Your body loses heat faster than it makes it. First you shiver and your hands get clumsy; then
+        <b>hypothermia</b> sets in: confusion, slurred speech, drowsiness, and the shivering stops. Older people,
+        babies, and anyone wet, tired, hungry or who has been drinking alcohol cool fastest. <b>Frostbite</b>
+        freezes exposed skin (nose, ears, cheeks, fingers, toes): it goes numb, then white or greyish-yellow and waxy.
+        Wind chill tells you how cold it feels on bare skin. Wet clothing loses most of its warmth, so cold rain
+        at 35–50 °F (2–10 °C) can be as dangerous as a dry freeze.</p></details>
+    <details><summary>Heat</summary>
+      <p>Your body cools itself by sweating. In heat it struggles: <b>heat cramps</b>, then <b>heat exhaustion</b>
+        (heavy sweating, weakness, nausea, headache, dizziness, cool clammy skin), then <b>heat stroke</b>
+        (body temperature over 103 °F / 39.4 °C, hot red skin, confusion, fainting). Heat stroke is an emergency:
+        call 911 and cool the person with water and ice. The heat index is for shade; full sun can add up to
+        15 °F (8 °C). Night-time lows that stay warm give the body no chance to recover.</p></details>
+    <details><summary>Humidity</summary>
+      <p>Humid air stops sweat from evaporating, so it no longer cools you, which is why muggy days feel hotter
+        than the thermometer says (the heat index). Very dry air does the opposite: sweat dries so fast you
+        don't notice how much water you lose, and it dries out your skin, eyes, nose and throat, and can trigger
+        nosebleeds and asthma. Dry cold air in winter does the same.</p></details>
+    <details><summary>Wind</summary>
+      <p>In cold weather wind strips away the warm layer of air next to your skin: that is wind chill, and it
+        speeds frostbite and hypothermia. In mild heat a breeze helps by drying sweat. Above about 99 °F (37 °C) hot
+        wind adds heat instead. Wind also dries you out. Gusts over 25 mph (40 km/h) make walking and holding an
+        umbrella hard; over 40 mph (64 km/h) branches fall; over 58 mph (93 km/h) people can be knocked over and
+        debris flies.</p></details>
+    <details><summary>Sunshine and UV</summary>
+      <p>Sunshine warms you: in full sun you take in much more heat than in shade, which is why heat stress
+        (WBGT) is higher than the heat index on a sunny day. The sun's <b>ultraviolet</b> light burns skin and
+        eyes and, over the years, causes skin cancer and cataracts. The UV index runs from 1 to 11+: at 3 and up
+        use sunscreen (SPF 30+), a hat and sunglasses; at 8 and up unprotected fair skin can burn in under
+        20 minutes. UV is strongest from 10 am to 4 pm, and water, sand and snow reflect more onto you. Some sun
+        lifts mood and makes vitamin D; long runs of grey days can lower energy and mood.</p></details>
+    <details><summary>Cloud cover</summary>
+      <p>Clouds block much of the sun's heat, so a cloudy summer day is easier on the body and a cloudy winter
+        day feels colder. They block far less UV: thin or broken cloud lets most of it through, so you can burn on a
+        hazy or partly cloudy day. Clear nights get colder, because the ground loses its heat to the sky; cloudy
+        nights stay milder.</p></details>
+    <details><summary>Dew point (how muggy it feels)</summary>
+      <p>The dew point is how much water vapour is in the air, and it tells you how sticky it feels better than
+        the relative humidity does. Below 50 °F (10 °C) the air feels dry; 50–59 °F (10–15 °C) comfortable;
+        60–64 °F (16–18 °C) sticky; 65–69 °F (18–21 °C) muggy; 70–74 °F (21–24 °C) oppressive, and 75 °F (24 °C) and
+        up miserable, with sweat that hardly evaporates. High dew points also keep nights warm.</p></details>
+    <details><summary>Lightning</summary>
+      <p>Lightning kills and injures people every year, most of them outdoors doing something ordinary: boating,
+        fishing, at the beach, on a sports field or doing yard work. It can strike 10 miles (16 km) from a storm,
+        often before the rain arrives. When thunder roars, go indoors: a closed building or a hard-topped car.
+        Porches, tents, picnic shelters and trees are not safe. Wait 30 minutes after the last thunder.
+        On a boat, head in early; if caught out, stay low in the cabin away from metal. The forecast here uses the
+        weather model's thunderstorm forecast and CAPE, the energy available to build storms (1,000 J/kg and up is
+        enough for strong ones).</p></details>
+    <details><summary>Warm and cold nights</summary>
+      <p>Sleep is best in a cool room, about 60–67 °F (16–19 °C). Nights that stay above about 75 °F (24 °C) give the
+        body no chance to recover from the day's heat; over several nights heat builds up, which is when most heat
+        deaths happen, often older people alone at home without A/C. A fan helps up to about 90 °F (32 °C) but not
+        above it. On freezing nights the dangers are indoors too: space heaters too close to bedding, and carbon
+        monoxide from generators, grills or stoves run inside.</p></details>
+    <details><summary>Cold water</summary>
+      <p>Water takes heat from the body about 25 times faster than air at the same temperature. Falling into water
+        below about 60 °F (15 °C) triggers cold shock: an involuntary gasp and fast breathing for about a minute,
+        when you can easily inhale water. Then your arms and legs weaken within about 10 minutes, so swimming
+        to shore often fails; hypothermia takes longer. A life jacket keeps you afloat through all of it.</p></details>
+    <details><summary>Air quality and pollen</summary>
+      <p>Smoke, haze and dust (fine particles) get deep into the lungs and bloodstream; ozone (smog), worst on hot sunny
+        afternoons, irritates the airways. Both hit people with asthma, heart or lung disease, children and older
+        adults first. Pollen does not harm most people, but for those with hay fever or allergic asthma it brings
+        sneezing, itchy eyes and wheezing, worst on dry, warm, windy days; rain clears it from the air for a while.</p></details>
   </section>
 
   <section data-tab="storms" id="stormCard" class="card storms" hidden>
